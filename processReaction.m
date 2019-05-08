@@ -1,32 +1,22 @@
-function [I_ion, S] = processReaction(V, S, dt, I_stim, model)
+function [I_ion, S] = processReaction(V, S, dt, I_stim, cell_models, model_assignments)
 % This function applies Rush-Larsen integration to process a timestep of
 % length dt, according to the cell model specified in input variable
 % 'model'. 
 
-switch model
+% Loop over all cell models present in this simulation, processing all 
+% cells assigned to a single model as one batch
+I_ion = zeros(size(model_assignments));
+for k = 1:length(cell_models)
     
-    case 'TT04epi'    % Reduced Ten-Tusscher model (epicardial)
-        [I_ion, S] = RLUpdateTT04(V, S, dt, I_stim, 'epi');
-    case 'TT04M'    % Reduced Ten-Tusscher model (epicardial)
-        [I_ion, S] = RLUpdateTT04(V, S, dt, I_stim, 'M');
-    case 'TT04endo'    % Reduced Ten-Tusscher model (epicardial)
-        [I_ion, S] = RLUpdateTT04(V, S, dt, I_stim, 'endo');
-    case 'TT06epi'    % Reduced Ten-Tusscher model (epicardial)
-        [I_ion, S] = RLUpdateTT06(V, S, dt, I_stim, 'epi');
-    case 'TT06M'    % Reduced Ten-Tusscher model (epicardial)
-        [I_ion, S] = RLUpdateTT06(V, S, dt, I_stim, 'M');
-    case 'TT06endo'    % Reduced Ten-Tusscher model (epicardial)
-        [I_ion, S] = RLUpdateTT06(V, S, dt, I_stim, 'endo');
-    case 'TT3epi'    % Reduced Ten-Tusscher model (epicardial)
-        [I_ion, S] = RLUpdateTT3(V, S, dt, 'epi');
-    case 'TT3M'    % Reduced Ten-Tusscher model (epicardial)
-        [I_ion, S] = RLUpdateTT3(V, S, dt, 'M');
-    case 'TT3endo'    % Reduced Ten-Tusscher model (epicardial)
-        [I_ion, S] = RLUpdateTT3(V, S, dt, 'endo');
-        
-    otherwise
-        error('Model not found!');
-        
+    % Find which cells use the current model
+    batch = (model_assignments == k);
+    % Perform a Rush-Larsen update using this model for these cells
+    try
+        [I_ion(batch), S(batch,:)] = feval(['RLUpdate',cell_models{k}], V(batch), S(batch,:), dt, I_stim(batch));
+    catch
+        error('Processing reaction term failed for model %s.\nConfirm file %s.m exists, and verify it has no errors \n', cell_models{k}, ['RLUpdate',cell_models{k}]);
+    end
+    
 end
 
 end

@@ -70,6 +70,17 @@ if stim_right
 end
 
 
+%%% Specify the cell model to use at all sites
+
+% List cell models that will be used here
+cell_models = {'TT3epi', 'TT3hyper'};
+% Assign models to cells (by number)
+model_assignments = zeros(size(nodeX));
+model_assignments(nodeX < 1) = 1;
+model_assignments(nodeX >= 1) = 2;
+
+
+
 
 %%% Process and save all data
 
@@ -93,6 +104,8 @@ problem.grid.dy = dy;
 problem.stim_sites = stim_sites;
 problem.nodeX = nodeX;
 problem.nodeY = nodeY;
+problem.cell_models = cell_models;
+problem.model_assignments = model_assignments;
 
 % Save the problem
 save([filename,'.mat'],'problem');

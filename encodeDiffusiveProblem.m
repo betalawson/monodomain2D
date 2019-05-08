@@ -15,7 +15,7 @@ function [A, b, active] = encodeDiffusiveProblem( D_tensor, Vfrac, grid )
 
 % Specify here a flag that controls how volume fraction averages are
 % calculated
-include_occlusions = 1;     % 0 - do not include occlusions, only available space contributes to calculated values of volume fraction
+include_occlusions = 0;     % 0 - do not include occlusions, only available space contributes to calculated values of volume fraction
                             % 1 - include internal occlusions, but disclude the no-flux boundaries from calculations
                             % 2 - include all occlusions, including no-flux boundary barriers, in calculations
 

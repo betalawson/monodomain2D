@@ -12,7 +12,6 @@ Cm = 1;                                 % Tissue capacitance per unit area (?F/c
 
 % Problem specification
 problem_name = 'leftstim';               % Filename for the problem to solve (create problem .mat files using the "create" functions)
-model = 'TT04epi';                       % Ionic model
 
 % Stimulus settings
 stim_dur = 1;                           % Stimulus duration (ms)
@@ -47,13 +46,16 @@ scale = lambda / (lambda + 1) / chi / Cm;
 % Read out the number of nodes to solve at
 N = length(active);
 
-% Initialise problem
-[V, S] = initialiseProblem(N, model, active);
-
 % Read out stimulus sites, and convert to a vectorised form
 stim_sites = problem.stim_sites;
 stim_sites = stim_sites';
 stim_sites = stim_sites(:);
+
+% Read out cell models, and convert to a vectorised form
+cell_models = problem.cell_models;
+model_assignments = problem.model_assignments;
+model_assignments = model_assignments';
+model_assignments = model_assignments(:);
 
 % Read out node X and Y locations, and also vectorise them
 nodeX = problem.nodeX;
@@ -66,6 +68,9 @@ if save_anim && visualise
     vid_obj = VideoWriter([problem_name,'.avi']);
     open(vid_obj);
 end
+
+% Initialise problem
+[V, S] = initialiseProblem(cell_models, model_assignments, active);
 
 % Initialise timers
 diff_time = 0; reac_time = 0;
@@ -89,7 +94,7 @@ while t < t_end
         % Process reaction update - uses current voltage values and current
         % state variable values, S. Only processes active sites
         tic;
-        [I_ion, S_active] = processReaction(V(active), S(active,:), dt, I_stim(active), model);
+        [I_ion, S_active] = processReaction(V(active), S(active,:), dt, I_stim(active), cell_models, model_assignments(active));
         reac_time = reac_time + toc;
         
         % Update V and S at the active sites using the calculated value

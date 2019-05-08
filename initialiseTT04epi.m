@@ -1,4 +1,4 @@
-function [V, S] = initialiseTT04(N_cells)
+function [V, S] = initialiseTT04epi(N_cells)
 % This function initialises V and S to the starting values for the TT04
 % model (epicardial), creating vectors of length specified by N_cells
 

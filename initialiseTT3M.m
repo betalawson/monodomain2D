@@ -1,4 +1,4 @@
-function [V, S] = initialiseTT3(N_cells)
+function [V, S] = initialiseTT3M(N_cells)
 % This function initialises V and S to the starting values for the TT04
 % model (epicardial), creating vectors of length specified by N_cells
 

@@ -1,4 +1,4 @@
-function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = RLUpdateTT3(V, S, dt, cell_type)
+function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = RLUpdateTT3endo(V, S, dt, cell_type)
 % This function performs a Rush Larsen timestep of the specified length for
 % the reduced Ten-Tusscher 2006 model for ventricular myocytes. The
 % implementation is according to the online source code, except with the
@@ -22,17 +22,9 @@ Ca_i = 0.00007;       % Intracellular Ca2+ concentration (fixed in reduced model
 
 % Define channel conductances and other current strengths
 g_Na = 14.838;        % Maximum conductance of I_Na (nS/pF)
-if strcmp(cell_type, 'epi') || strcmp(cell_type, 'M')
-    g_to = 0.294;     % Maximum conductance of I_to (nS/pF)
-else
-    g_to = 0.073;     % Maximum conductance of I_to (nS/pF)
-end
+g_to = 0.073;         % Maximum conductance of I_to (nS/pF)
 g_Kr = 0.101;         % Maximum conductance of I_Kr (nS/pF)
-if strcmp(cell_type, 'epi') || strcmp(cell_type, 'endo')
-    g_Ks = 0.257;     % Maximum conductance of I_Ks (nS/pF)
-else
-    g_Ks = 0.06425;   % Maximum conductance of I_Ks (nS/pF)
-end
+g_Ks = 0.257;         % Maximum conductance of I_Ks (nS/pF)
 g_K1 = 5.405;         % Maximum conductance of I_K1 (nS/pF)
 g_CaL = 0.2786;       % Maximum conductance of I_CaL (cm^3 ?F^-1 s^-1)        
 k_NaK = 2.724;        % Maximum I_NaK (pA/pF)
@@ -98,13 +90,8 @@ tau_j = 1 ./ ( ~V_m40 .* ( ( -25428 * exp(0.2444 * V) - 0.000006948 * exp(-0.043
 
 % Transient outward K+ gates
 r_inf = 1 ./ ( 1 + exp( (20-V) / 6 ) );
-if strcmp(cell_type, 'epi') || strcmp(cell_type, 'M')
-    s_inf = 1 ./ ( 1 + exp( (V + 20) / 5 ) );
-    tau_s = 85 * exp( -( (V+45).^2 / 320) ) + 5 ./ ( 1 + exp( (V - 20) / 5 ) ) + 3;
-else
-    s_inf = 1 ./ ( 1 + exp( (V + 28) / 5 ) );
-    tau_s = 1000 * exp( -(V+67).^2 / 1000 ) + 8;
-end
+s_inf = 1 ./ ( 1 + exp( (V + 28) / 5 ) );
+tau_s = 1000 * exp( -(V+67).^2 / 1000 ) + 8;
 
 % Delayed rectifier K+ gates
 xr1_inf = 1 ./ ( 1 + exp( -( V + 26) / 7 ) );
