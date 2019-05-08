@@ -1,4 +1,4 @@
-function [A, b, active] = encodeDiffusiveProblem( D_tensor, Vfrac, grid )
+function [A, b, active] = encodeDiffusiveProblem( D_tensor, Vfrac, grid, dt, scale )
 
 % First, create a map informing which of the four elements surrounding
 % every node is filled with fibrosis or not (causing it not to contribute
@@ -117,26 +117,54 @@ eloc_ur = eloc_dl + (Nx+2) + 1;
 nlist = ( j * (Nx+3) + i + 1 );
 
 % Now, the control volume formulation of the diffusive part of the problem
-% is used to build the matrix, in terms of the above fluxes
-A = sparse(Nf, Nf);
-% The point itself
-A( sub2ind( [Nf Nf], nlist, nlist ) ) = dx/2 * J_W(eloc_ur,1) + dy/2 * J_S(eloc_ur,1) + dx/2 * J_E(eloc_ul,2) - dy/2 * J_S(eloc_ul,2) - dx/2 * J_W(eloc_dr,3) + dy/2 * J_N(eloc_dr,3) - dx/2 * J_E(eloc_dl,4) - dy/2 * J_N(eloc_dl,4);
-% North-East node
-A( sub2ind( [Nf Nf], nlist, nlist+(Nx+3)+1 ) ) = dx/2 * J_W(eloc_ur,4) + dy/2 * J_S(eloc_ur,4);
-% North-West node
-A( sub2ind( [Nf Nf], nlist, nlist+(Nx+3)-1 ) ) = dx/2 * J_E(eloc_ul,3) - dy/2 * J_S(eloc_ul,3);
-% South-East node
-A( sub2ind( [Nf Nf], nlist, nlist-(Nx+3)+1 ) ) = - dx/2 * J_W(eloc_dr,2) + dy/2 * J_N(eloc_dr,2);
-% South-West node
-A( sub2ind( [Nf Nf], nlist, nlist-(Nx+3)-1 ) ) = - dx/2 * J_E(eloc_dl,1) - dy/2 * J_N(eloc_dl,1);
-% East node
-A( sub2ind( [Nf Nf], nlist, nlist+1 ) ) = dx/2 * J_W(eloc_ur,2) + dy/2 * J_S(eloc_ur,2) - dx/2 * J_W(eloc_dr,4) + dy/2 * J_N(eloc_dr,4);
-% West node
-A( sub2ind( [Nf Nf], nlist, nlist-1 ) ) = dx/2 * J_E(eloc_ul,1) - dy/2 * J_S(eloc_ul,1) - dx/2 * J_E(eloc_dl,3) - dy/2 * J_N(eloc_dl,3);
-% North node
-A( sub2ind( [Nf Nf], nlist, nlist+(Nx+3) ) ) = dx/2 * J_W(eloc_ur,3) + dy/2 * J_S(eloc_ur,3) + dx/2 * J_E(eloc_ul,4) - dy/2 * J_S(eloc_ul,4);
-% South node
-A( sub2ind( [Nf Nf], nlist, nlist-(Nx+3) ) ) = - dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(eloc_dl,2) - dy/2 * J_N(eloc_dl,2);
+% is used to build the matrix, in terms of the above fluxes. The sparse
+% matrix is created by first creating vectors [i,j,v] that define the row,
+% column and value of the elements, respectively. This saves a great deal
+% of memory and time
+i_v = []; j_v = []; val_v = [];
+
+% Node's dependence on itself
+i_v = [i_v, nlist]; j_v = [j_v, nlist];
+val_v = [val_v; ( dx/2 * J_W(eloc_ur,1) + dy/2 * J_S(eloc_ur,1) + dx/2 * J_E(eloc_ul,2) - dy/2 * J_S(eloc_ul,2) - dx/2 * J_W(eloc_dr,3) + dy/2 * J_N(eloc_dr,3) - dx/2 * J_E(eloc_dl,4) - dy/2 * J_N(eloc_dl,4) ) ./ Vfrac_nodes ];
+
+% Node's dependence on North-East node
+i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)+1];
+val_v = [val_v; ( dx/2 * J_W(eloc_ur,4) + dy/2 * J_S(eloc_ur,4) ) ./ Vfrac_nodes];
+
+% Node's dependence on North-West node
+i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)-1];
+val_v = [val_v; ( dx/2 * J_E(eloc_ul,3) - dy/2 * J_S(eloc_ul,3) ) ./ Vfrac_nodes];
+
+% Node's dependence on South-East node
+i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)+1];
+val_v = [val_v; (- dx/2 * J_W(eloc_dr,2) + dy/2 * J_N(eloc_dr,2) ) ./ Vfrac_nodes];
+
+% Node's dependence on South-West node
+i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)-1];
+val_v = [val_v; (- dx/2 * J_E(eloc_dl,1) - dy/2 * J_N(eloc_dl,1) ) ./ Vfrac_nodes];
+
+% Node's dependence on East node
+i_v = [i_v, nlist]; j_v = [j_v, nlist+1];
+val_v = [val_v; (dx/2 * J_W(eloc_ur,2) + dy/2 * J_S(eloc_ur,2) - dx/2 * J_W(eloc_dr,4) + dy/2 * J_N(eloc_dr,4) ) ./ Vfrac_nodes];
+
+% Node's dependence on West node
+i_v = [i_v, nlist]; j_v = [j_v, nlist-1];
+val_v = [val_v; (dx/2 * J_E(eloc_ul,1) - dy/2 * J_S(eloc_ul,1) - dx/2 * J_E(eloc_dl,3) - dy/2 * J_N(eloc_dl,3) ) ./ Vfrac_nodes];
+
+% Node's dependence on North node
+i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)];
+val_v = [val_v; (dx/2 * J_W(eloc_ur,3) + dy/2 * J_S(eloc_ur,3) + dx/2 * J_E(eloc_ul,4) - dy/2 * J_S(eloc_ul,4) ) ./ Vfrac_nodes];
+
+% Node's dependence on South node
+i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)];
+val_v = [val_v; (- dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(eloc_dl,2) - dy/2 * J_N(eloc_dl,2) ) ./ Vfrac_nodes];
+
+% Before creating the matrix, set any values that appear to be zero (but
+% are not due to rounding error) to explicitly zero so they are not stored
+%val_v( abs(val_v) < 100*eps ) = 0;
+
+% Now create the matrix
+A = sparse(i_v, j_v, val_v, Nf, Nf);
 
 % Scale the whole matrix by the volume of the control volume
 A = A / (dx * dy);
@@ -144,10 +172,6 @@ A = A / (dx * dy);
 % Now, grab out only the rows of the matrix that correspond to real nodes
 % (i.e. without the dummy boundaries)
 A = A(nlist,nlist);
-
-% Divide through each row by the average volume fraction associated with
-% that node
-A = A ./ Vfrac_nodes; 
 
 % No source term with straight diffusion, as implemented here
 b = zeros(Nn,1);
@@ -160,9 +184,15 @@ active = ~all([occ_v(eloc_dl), occ_v(eloc_dr), occ_v(eloc_ul), occ_v(eloc_ur) ],
 A = A(active, active);
 b = b(active);
 
-% Further remove any values in the matrix that should be zero, but were
-% stored due to rounding
-A(abs(A) < 10*eps) = 0;
+% Finally, convert the matrix to the form actually used in solving the
+% diffusive updates (performed once here to save time)
+% That is, instead of the matrix defined above, which is for form
+% dV/dt (diffusive) =  A V - b,
+% it is now converted to form
+% A V_new = V_old - dt * b.
+% This is also the moment where the 'scale' of diffusion (factors in the
+% monodomain equation) are introduced
+A = speye(size(A)) - dt * scale * A;
 
 end
 

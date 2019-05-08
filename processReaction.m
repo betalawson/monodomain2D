@@ -10,11 +10,14 @@ for k = 1:length(cell_models)
     
     % Find which cells use the current model
     batch = (model_assignments == k);
-    % Perform a Rush-Larsen update using this model for these cells
-    try
-        [I_ion(batch), S(batch,:)] = feval(['RLUpdate',cell_models{k}], V(batch), S(batch,:), dt, I_stim(batch));
-    catch
-        error('Processing reaction term failed for model %s.\nConfirm file %s.m exists, and verify it has no errors \n', cell_models{k}, ['RLUpdate',cell_models{k}]);
+    % Perform a Rush-Larsen update using this model for these nodes
+    % (assuming some nodes are marked with this model)
+    if sum(batch) > 0
+        try
+            [I_ion(batch), S(batch,:)] = feval(['RLUpdate',cell_models{k}], V(batch), S(batch,:), dt, I_stim(batch));
+        catch
+            error('Processing reaction term failed for model %s.\nConfirm file %s.m exists, and verify it has no errors \n', cell_models{k}, ['RLUpdate',cell_models{k}]);
+        end
     end
     
 end
