@@ -2,18 +2,18 @@ function createOpenTissueProblem(filename)
 % This function creates a wedge problem
 
 % Define the diffusion tensor
-D = [ 1, 0; 0, 3 ];
+D = [ 2, 0; 0, 3 ];
 
 % Define the number of elements in the problem
-Nx = 50;
-Ny = 50;
+Nx = 4;
+Ny = 4;
 
 % Define the physical size of the problem (in centimetres)
-Lx = 1;
-Ly = 1;
+Lx = 2;
+Ly = 2;
 
 % Specify stimulus region size (bottom left corner)
-stim_radius = 0.25;
+stim_radius = 0.75;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -43,14 +43,15 @@ Vfrac = ~occ_map;      % Volume fraction of one in all non-occupied elements (no
 stim_sites = false(size(nodeY));
 
 % Set the bottom-left corner to be stimulated
-stim_sites( sqrt(nodeX.^2 + nodeY.^2) <= stim_radius^2) = true;
+%stim_sites( sqrt(nodeX.^2 + nodeY.^2) <= stim_radius) = true;
+stim_sites(nodeX <= 0.8) = true;
 
 
 
 %%% Specify the cell model to use at all sites
 
 % List cell models that will be used here
-cell_models = {'TT3epi'};
+cell_models = {'TT3weak'};
 % Assign models to cells (by number)
 model_assignments = zeros(size(nodeX));
 model_assignments(:) = 1;
@@ -71,15 +72,20 @@ D_xy = D_xy * (~occ_map);
 D_yy = D_yy * (~occ_map);
 
 % Store problem details in the 'problem' structure
+problem.occ_map = occ_map;
 problem.D_tensor.D_xx = D_xx;
 problem.D_tensor.D_xy = D_xy;
 problem.D_tensor.D_yy = D_yy;
 problem.Vfrac = Vfrac;
 problem.grid.dx = dx;
 problem.grid.dy = dy;
-problem.stim_sites = stim_sites;
+problem.grid.Lx = Lx;
+problem.grid.Ly = Ly;
+problem.Nx = Nx;
+problem.Ny = Ny;
 problem.nodeX = nodeX;
 problem.nodeY = nodeY;
+problem.stim_sites = stim_sites;
 problem.cell_models = cell_models;
 problem.model_assignments = model_assignments;
 

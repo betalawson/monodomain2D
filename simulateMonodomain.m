@@ -1,25 +1,28 @@
-function simulateMonodomain
+function simulateMonodomain(problem_name)
 % This function simulates the monodomain equation on a mesh where diffusion
 % coefficient is allowed to vary. No-flux regions may also be included
 % inside the mesh. A vertex-centred approach is used for the actual
 % integration step, as a method that deals more nicely with a non-diagonal
-% diffusion coefficient
+% diffusion coefficient.
+%
+% Input is the "problem_name", the filename of the problem file (.mat) that
+% defines the problem to be simulated. These .mat files are created by
+% separate functions (see example functions createOpenTissueProblem and
+% createWedgeProblem to see how these are created)
 
 % Monodomain parameters
 lambda = 1;                               % Ratio of intracellular and extracellular conducitivies
 chi = 2000;                               % Surface-to-volume ratio for tissue (cm^-1)
 Cm = 1;                                   % Tissue capacitance per unit area (?F/cm²) - cell capacitance is defined in ionic model files
 
-% Problem specification
-problem_name = 'leftstim';                % Filename for the problem to solve (create problem .mat files using the "create" functions)
-
 % Stimulus settings
 stim_dur = 1;                             % Stimulus duration (ms)
 stim_amp = 52;                            % Amplitude of stimulus per unit area (?A/cm²)
-stim_times = [20, 520, 920, 1300, 1680];  % Vector of times to stimulate (ms)
+stim_times1 = [20];  % Vector of times to stimulate sites marked as a primary stimulus (ms)
+stim_times2 = [620];  % Vector of times to stimulate sites marked as a secondary stimulus (ms)
 
 % Timestepping and solution methods
-t_end = 2000;                             % Simulation time (ms)
+t_end = 1000;                             % Simulation time (ms)
 dt = 0.01;                                % Timestep (ms)
 reac_per_diffuse = 1;                     % Number of reaction steps to perform before each diffusive update
 diff_exact = 0;                           % Require exact solves (direct methods) for linear system in diffusive updates
@@ -27,7 +30,7 @@ diff_exact = 0;                           % Require exact solves (direct methods
 % Plotting
 visualise = 1;                            % Flag for whether to visualise or not
 save_anim = 1;                            % Flag for whether or not to save an animation (filename same as problem name, CAREFUL not to overwite!)
-plot_interval = 10;                       % Time interval for plotting (ms)
+plot_interval = 2.5;                       % Time interval for plotting (ms)
 
 
 
@@ -43,14 +46,16 @@ scale = lambda / (lambda + 1) / chi / Cm;
 % updates - this code also outputs a list of which sites are actually
 % active in the model
 [A, b, active] = encodeDiffusiveProblem(problem.D_tensor, problem.Vfrac, problem.grid, dt, scale);
-
 % Read out the number of nodes to solve at
 N = length(active);
 
 % Read out stimulus sites, and convert to a vectorised form
-stim_sites = problem.stim_sites;
-stim_sites = stim_sites';
-stim_sites = stim_sites(:);
+stim_sites1 = problem.stim_sites1;
+stim_sites1 = stim_sites1';
+stim_sites1 = stim_sites1(:);
+stim_sites2 = problem.stim_sites2;
+stim_sites2 = stim_sites2';
+stim_sites2 = stim_sites2(:);
 
 % Read out cell models, and convert to a vectorised form
 cell_models = problem.cell_models;
@@ -88,8 +93,12 @@ while t < t_end
         
         % Stimulate if this is a stimulus time
         I_stim = zeros(N,1);
-        if any( (t - stim_times) <= stim_dur & (t - stim_times) >= 0 )
-            I_stim(stim_sites) = -stim_amp;
+        if any( (t - stim_times1) <= stim_dur & (t - stim_times1) >= 0 )
+            I_stim(stim_sites1) = -stim_amp;
+        end
+        
+        if any( (t - stim_times2) <= stim_dur & (t - stim_times2) >= 0 )
+            I_stim(stim_sites2) = -stim_amp;
         end
     
         % Process reaction update - uses current voltage values and current
@@ -114,7 +123,7 @@ while t < t_end
     % Check plot frequency, plot if hit
     if visualise && ( t - floor(t / plot_interval) * plot_interval <= dt*reac_per_diffuse )
        
-        scatter(nodeX, nodeY, 10, V, 'filled' );
+        scatter(nodeX, nodeY, 25, V, 'filled' );
         caxis([-90 40]);
         title(['Voltage map at time t = ',num2str(t)], 'FontSize', 24);
         

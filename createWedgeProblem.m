@@ -5,24 +5,23 @@ function createWedgeProblem(filename)
 D = [ 1, 0; 0, 3 ];
 
 % Define the number of elements in the problem
-Nx = 100;
-Ny = 100;
+Nx = 200;
+Ny = 200;
 
 % Define the physical size of the problem (in centimetres)
-Lx = 2;
-Ly = 2;
+Lx = 1;
+Ly = 1;
 
 % Specify the horizontal location where the channel begins and ends
-channel_start = 0.25;
-channel_end = 1.75;
-channel_constant_length = 0.65;
-channel_start_width = 0.1;
-channel_end_width = 1.5;
+channel_start = 0;
+channel_end = 0.5;
+channel_constant_length = 0.5;
+channel_start_width = 0.02;
+channel_end_width = 0.02;
 
-% Specify whether to stimulate on the left and/or the right
-stim_left = 1;
-stim_right = 0;
-stim_width = 0.05;            % Width of stimulus region
+% Stimulus regions are the left and right edges of the domain (left
+% primary, right secondary)
+stim_width = 0.2;            % Width of stimulus regions
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -39,10 +38,10 @@ dy = Ly / Ny;
 occ_map = zeros(size(Y));
 
 % Channel entrance
-occ_map( X >= channel_start & X < channel_start+channel_constant_length &  abs( Y - Ly/2 ) >= channel_start_width/2 ) = 1;
+occ_map( X > channel_start & X < channel_start+channel_constant_length &  abs( Y - Ly/2 ) >= channel_start_width/2 ) = 1;
 
 % Channel exit
-occ_map( X <= channel_end & X > channel_end-channel_constant_length &  abs( Y - Ly/2 ) >= channel_end_width/2 ) = 1;
+occ_map( X < channel_end & X > channel_end-channel_constant_length &  abs( Y - Ly/2 ) >= channel_end_width/2 ) = 1;
 
 % Channel opening region
 occ_map( X >= channel_start+channel_constant_length & X <= channel_end-channel_constant_length & abs( Y - Ly/2) >= ( channel_start_width/2 + (channel_end_width - channel_start_width) / ( 2 * ( channel_end - channel_start - 2*channel_constant_length) ) * (X - channel_start - channel_constant_length) ) ) = 1;
@@ -59,21 +58,19 @@ Vfrac = ~occ_map;      % Volume fraction of one in all non-occupied elements (no
 [nodeX, nodeY] = meshgrid( linspace(0,Lx,Nx+1), linspace(0,Ly,Ny+1) );
 
 % Initialise stimulus matrix to zeroes
-stim_sites = false(size(nodeY));
+stim_sites1 = false(size(nodeY));
+stim_sites2 = false(size(nodeY));
 
 % Set edges to be stimulus sites as requested
-if stim_left
-    stim_sites(nodeX <= stim_width) = true;
-end
-if stim_right
-    stim_sites(nodeX >= Lx - stim_width) = true;
-end
+stim_sites1(nodeX <= stim_width) = true;
+stim_sites2(nodeX >= Lx - stim_width) = true;
+
 
 
 %%% Specify the cell model to use at all sites
 
 % List cell models that will be used here
-cell_models = {'TT04epi'};
+cell_models = {'TT3weak'};
 % Assign models to cells (by number)
 model_assignments = zeros(size(nodeX));
 model_assignments(nodeX < 1) = 1;
@@ -95,15 +92,22 @@ D_xy = D_xy * (~occ_map);
 D_yy = D_yy * (~occ_map);
 
 % Store problem details in the 'problem' structure
+problem.occ_map = occ_map;
 problem.D_tensor.D_xx = D_xx;
 problem.D_tensor.D_xy = D_xy;
 problem.D_tensor.D_yy = D_yy;
 problem.Vfrac = Vfrac;
 problem.grid.dx = dx;
 problem.grid.dy = dy;
-problem.stim_sites = stim_sites;
+problem.grid.Lx = Lx;
+problem.grid.Ly = Ly;
+problem.Nx = Nx;
+problem.Ny = Ny;
 problem.nodeX = nodeX;
 problem.nodeY = nodeY;
+problem.stim_sites1 = stim_sites1;
+problem.stim_sites2 = stim_sites2;
+problem.cell_models = cell_models;
 problem.cell_models = cell_models;
 problem.model_assignments = model_assignments;
 

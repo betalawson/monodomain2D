@@ -24,4 +24,3 @@ end
 
 % Turn off all inactive sites (NaN is used for removal from plotting)
 V(~active) = NaN;
-
