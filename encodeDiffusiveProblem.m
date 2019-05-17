@@ -15,7 +15,7 @@ function [A, b, active] = encodeDiffusiveProblem( D_tensor, Vfrac, grid, dt, sca
 
 % Specify here a flag that controls how volume fraction averages are
 % calculated
-include_occlusions = 0;     % 0 - do not include occlusions, only available space contributes to calculated values of volume fraction
+include_occlusions = 2;     % 0 - do not include occlusions, only available space contributes to calculated values of volume fraction
                             % 1 - include internal occlusions, but disclude the no-flux boundaries from calculations
                             % 2 - include all occlusions, including no-flux boundary barriers, in calculations
 
@@ -60,8 +60,7 @@ switch include_occlusions
     case 2   % Include everything
         include = ones(size(Vfrac_ext));
 end
-    
-
+   
 % Now use these values to calculate the average volume fraction associated
 % with each node
 Vfrac_nodes = ( ...
@@ -71,9 +70,13 @@ Vfrac_nodes = ( ...
               + include(2:Ny+2, 2:Nx+2) .* Vfrac_ext(2:Ny+2, 2:Nx+2) ...
                  ) ./ ( include(1:Ny+1, 1:Nx+1) + include(2:Ny+2, 1:Nx+1) + include(1:Ny+1, 2:Nx+2) + include(2:Ny+2, 2:Nx+2) );
              
+% A very similar calculation calculates the volume of each control volume
+CV_vols = ( ~occ_map_ext(1:Ny+1, 1:Nx+1) + occ_map_ext(2:Ny+2, 1:Nx+1) + occ_map_ext(1:Ny+1, 2:Nx+2) + occ_map_ext(2:Ny+2, 2:Nx+2) ) / ( 4 * dx * dy );
+             
 % Convert these matrices into a vector for ease of use in the matrix system
 Vfrac_ext = Vfrac_ext'; Vfrac_ext = Vfrac_ext(:);
 Vfrac_nodes = Vfrac_nodes'; Vfrac_nodes = Vfrac_nodes(:);
+CV_vols = CV_vols'; CV_vols = CV_vols(:);
              
 % Define the number of nodes in the normal and extended node grids
 Nn = (Nx+1)*(Ny+1);
@@ -166,7 +169,7 @@ val_v = [val_v; (- dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(el
 % Now create the matrix
 A = sparse(i_v, j_v, val_v, Nf, Nf);
 
-% Scale the whole matrix by the volume of the control volume
+% Scale the whole matrix by the volume of each control volume
 A = A / (dx * dy);
 
 % Now, grab out only the rows of the matrix that correspond to real nodes

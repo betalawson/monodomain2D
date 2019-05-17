@@ -2,18 +2,18 @@ function createOpenTissueProblem(filename)
 % This function creates a wedge problem
 
 % Define the diffusion tensor
-D = [ 2, 0; 0, 3 ];
+D = [ 3, 0; 0, 3 ];
 
 % Define the number of elements in the problem
-Nx = 4;
-Ny = 4;
+Nx = 1000;
+Ny = 1000;
 
 % Define the physical size of the problem (in centimetres)
-Lx = 2;
-Ly = 2;
+Lx = 1;
+Ly = 1;
 
 % Specify stimulus region size (bottom left corner)
-stim_radius = 0.75;
+stim_radius = 0.1;
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -40,18 +40,19 @@ Vfrac = ~occ_map;      % Volume fraction of one in all non-occupied elements (no
 [nodeX, nodeY] = meshgrid( linspace(0,Lx,Nx+1), linspace(0,Ly,Ny+1) );
 
 % Initialise stimulus matrix to zeroes
-stim_sites = false(size(nodeY));
+stim_sites1 = false(size(nodeY));
+stim_sites2 = false(size(nodeY));
 
 % Set the bottom-left corner to be stimulated
-%stim_sites( sqrt(nodeX.^2 + nodeY.^2) <= stim_radius) = true;
-stim_sites(nodeX <= 0.8) = true;
+stim_sites1(nodeX <= 0.1) = true;
+stim_sites2( sqrt(nodeX.^2 + nodeY.^2) <= stim_radius) = true;
 
 
 
 %%% Specify the cell model to use at all sites
 
 % List cell models that will be used here
-cell_models = {'TT3weak'};
+cell_models = {'TT3epi'};
 % Assign models to cells (by number)
 model_assignments = zeros(size(nodeX));
 model_assignments(:) = 1;
@@ -85,7 +86,8 @@ problem.Nx = Nx;
 problem.Ny = Ny;
 problem.nodeX = nodeX;
 problem.nodeY = nodeY;
-problem.stim_sites = stim_sites;
+problem.stim_sites1 = stim_sites1;
+problem.stim_sites2 = stim_sites2;
 problem.cell_models = cell_models;
 problem.model_assignments = model_assignments;
 

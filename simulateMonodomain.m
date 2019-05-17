@@ -19,7 +19,7 @@ Cm = 1;                                   % Tissue capacitance per unit area (?F
 stim_dur = 1;                             % Stimulus duration (ms)
 stim_amp = 52;                            % Amplitude of stimulus per unit area (?A/cm²)
 stim_times1 = [20];  % Vector of times to stimulate sites marked as a primary stimulus (ms)
-stim_times2 = [620];  % Vector of times to stimulate sites marked as a secondary stimulus (ms)
+stim_times2 = [];  % Vector of times to stimulate sites marked as a secondary stimulus (ms)
 
 % Timestepping and solution methods
 t_end = 1000;                             % Simulation time (ms)
@@ -82,7 +82,7 @@ end
 diff_time = 0; reac_time = 0;
 
 % Loop over time integrations
-t = 0; 
+t = 0;
 while t < t_end
     
     % Reaction step (perform a number of these for each diffusive update)
@@ -137,7 +137,7 @@ while t < t_end
         end
         
     end
-
+    
 end
 
 % Close video object if one was created
