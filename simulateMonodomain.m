@@ -25,6 +25,7 @@ stim_times2 = [];  % Vector of times to stimulate sites marked as a secondary st
 t_end = 1000;                             % Simulation time (ms)
 dt = 0.01;                                % Timestep (ms)
 reac_per_diffuse = 1;                     % Number of reaction steps to perform before each diffusive update
+timestepping = 'implicit';                % Timestepping for diffusive updates: set to 'implicit' or 'crank-nicholson'
 diff_exact = 0;                           % Require exact solves (direct methods) for linear system in diffusive updates
 
 % Plotting
@@ -45,7 +46,7 @@ scale = lambda / (lambda + 1) / chi / Cm;
 % Build the matrix representing the linear system constructed for diffusive
 % updates - this code also outputs a list of which sites are actually
 % active in the model
-[A, b, active] = encodeDiffusiveProblem(problem.D_tensor, problem.Vfrac, problem.grid, dt, scale);
+[A, B, b, active] = encodeDiffusiveProblem(problem.D_tensor, problem.Vfrac, problem.grid, dt, scale, timestepping);
 % Read out the number of nodes to solve at
 N = length(active);
 
@@ -116,7 +117,7 @@ while t < t_end
     % Process diffusive update - uses current voltage values and the
     % diffusive update matrix A
     tic;
-    V_active = processDiffusion(V(active), A, b, dt, diff_exact);
+    V_active = processDiffusion(V(active), A, B, b, diff_exact);
     V(active) = V_active;
     diff_time = diff_time + toc;
     

@@ -1,4 +1,4 @@
-function [A, b, active] = encodeDiffusiveProblem( D_tensor, Vfrac, grid, dt, scale )
+function [A, B, b, active] = encodeDiffusiveProblem( D_tensor, Vfrac, grid, dt, scale, timestepping )
 
 % First, create a map informing which of the four elements surrounding
 % every node is filled with fibrosis or not (causing it not to contribute
@@ -15,7 +15,7 @@ function [A, b, active] = encodeDiffusiveProblem( D_tensor, Vfrac, grid, dt, sca
 
 % Specify here a flag that controls how volume fraction averages are
 % calculated
-include_occlusions = 2;     % 0 - do not include occlusions, only available space contributes to calculated values of volume fraction
+include_occlusions = 0;     % 0 - do not include occlusions, only available space contributes to calculated values of volume fraction
                             % 1 - include internal occlusions, but disclude the no-flux boundaries from calculations
                             % 2 - include all occlusions, including no-flux boundary barriers, in calculations
 
@@ -71,7 +71,7 @@ Vfrac_nodes = ( ...
                  ) ./ ( include(1:Ny+1, 1:Nx+1) + include(2:Ny+2, 1:Nx+1) + include(1:Ny+1, 2:Nx+2) + include(2:Ny+2, 2:Nx+2) );
              
 % A very similar calculation calculates the volume of each control volume
-CV_vols = ( ~occ_map_ext(1:Ny+1, 1:Nx+1) + occ_map_ext(2:Ny+2, 1:Nx+1) + occ_map_ext(1:Ny+1, 2:Nx+2) + occ_map_ext(2:Ny+2, 2:Nx+2) ) / ( 4 * dx * dy );
+CV_vols = dx * dy * ( ~occ_map_ext(1:Ny+1, 1:Nx+1) + ~occ_map_ext(2:Ny+2, 1:Nx+1) + ~occ_map_ext(1:Ny+1, 2:Nx+2) + ~occ_map_ext(2:Ny+2, 2:Nx+2) ) / 4;
              
 % Convert these matrices into a vector for ease of use in the matrix system
 Vfrac_ext = Vfrac_ext'; Vfrac_ext = Vfrac_ext(:);
@@ -128,39 +128,39 @@ i_v = []; j_v = []; val_v = [];
 
 % Node's dependence on itself
 i_v = [i_v, nlist]; j_v = [j_v, nlist];
-val_v = [val_v; ( dx/2 * J_W(eloc_ur,1) + dy/2 * J_S(eloc_ur,1) + dx/2 * J_E(eloc_ul,2) - dy/2 * J_S(eloc_ul,2) - dx/2 * J_W(eloc_dr,3) + dy/2 * J_N(eloc_dr,3) - dx/2 * J_E(eloc_dl,4) - dy/2 * J_N(eloc_dl,4) ) ./ Vfrac_nodes ];
+val_v = [val_v; ( dx/2 * J_W(eloc_ur,1) + dy/2 * J_S(eloc_ur,1) + dx/2 * J_E(eloc_ul,2) - dy/2 * J_S(eloc_ul,2) - dx/2 * J_W(eloc_dr,3) + dy/2 * J_N(eloc_dr,3) - dx/2 * J_E(eloc_dl,4) - dy/2 * J_N(eloc_dl,4) ) ./ CV_vols ];
 
 % Node's dependence on North-East node
 i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)+1];
-val_v = [val_v; ( dx/2 * J_W(eloc_ur,4) + dy/2 * J_S(eloc_ur,4) ) ./ Vfrac_nodes];
+val_v = [val_v; ( dx/2 * J_W(eloc_ur,4) + dy/2 * J_S(eloc_ur,4) ) ./ CV_vols];
 
 % Node's dependence on North-West node
 i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)-1];
-val_v = [val_v; ( dx/2 * J_E(eloc_ul,3) - dy/2 * J_S(eloc_ul,3) ) ./ Vfrac_nodes];
+val_v = [val_v; ( dx/2 * J_E(eloc_ul,3) - dy/2 * J_S(eloc_ul,3) ) ./ CV_vols];
 
 % Node's dependence on South-East node
 i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)+1];
-val_v = [val_v; (- dx/2 * J_W(eloc_dr,2) + dy/2 * J_N(eloc_dr,2) ) ./ Vfrac_nodes];
+val_v = [val_v; (- dx/2 * J_W(eloc_dr,2) + dy/2 * J_N(eloc_dr,2) ) ./ CV_vols];
 
 % Node's dependence on South-West node
 i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)-1];
-val_v = [val_v; (- dx/2 * J_E(eloc_dl,1) - dy/2 * J_N(eloc_dl,1) ) ./ Vfrac_nodes];
+val_v = [val_v; (- dx/2 * J_E(eloc_dl,1) - dy/2 * J_N(eloc_dl,1) ) ./ CV_vols];
 
 % Node's dependence on East node
 i_v = [i_v, nlist]; j_v = [j_v, nlist+1];
-val_v = [val_v; (dx/2 * J_W(eloc_ur,2) + dy/2 * J_S(eloc_ur,2) - dx/2 * J_W(eloc_dr,4) + dy/2 * J_N(eloc_dr,4) ) ./ Vfrac_nodes];
+val_v = [val_v; (dx/2 * J_W(eloc_ur,2) + dy/2 * J_S(eloc_ur,2) - dx/2 * J_W(eloc_dr,4) + dy/2 * J_N(eloc_dr,4) ) ./ CV_vols];
 
 % Node's dependence on West node
 i_v = [i_v, nlist]; j_v = [j_v, nlist-1];
-val_v = [val_v; (dx/2 * J_E(eloc_ul,1) - dy/2 * J_S(eloc_ul,1) - dx/2 * J_E(eloc_dl,3) - dy/2 * J_N(eloc_dl,3) ) ./ Vfrac_nodes];
+val_v = [val_v; (dx/2 * J_E(eloc_ul,1) - dy/2 * J_S(eloc_ul,1) - dx/2 * J_E(eloc_dl,3) - dy/2 * J_N(eloc_dl,3) ) ./ CV_vols];
 
 % Node's dependence on North node
 i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)];
-val_v = [val_v; (dx/2 * J_W(eloc_ur,3) + dy/2 * J_S(eloc_ur,3) + dx/2 * J_E(eloc_ul,4) - dy/2 * J_S(eloc_ul,4) ) ./ Vfrac_nodes];
+val_v = [val_v; (dx/2 * J_W(eloc_ur,3) + dy/2 * J_S(eloc_ur,3) + dx/2 * J_E(eloc_ul,4) - dy/2 * J_S(eloc_ul,4) ) ./ CV_vols];
 
 % Node's dependence on South node
 i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)];
-val_v = [val_v; (- dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(eloc_dl,2) - dy/2 * J_N(eloc_dl,2) ) ./ Vfrac_nodes];
+val_v = [val_v; (- dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(eloc_dl,2) - dy/2 * J_N(eloc_dl,2) ) ./ CV_vols];
 
 % Before creating the matrix, set any values that appear to be zero (but
 % are not due to rounding error) to explicitly zero so they are not stored
@@ -168,9 +168,6 @@ val_v = [val_v; (- dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(el
 
 % Now create the matrix
 A = sparse(i_v, j_v, val_v, Nf, Nf);
-
-% Scale the whole matrix by the volume of each control volume
-A = A / (dx * dy);
 
 % Now, grab out only the rows of the matrix that correspond to real nodes
 % (i.e. without the dummy boundaries)
@@ -195,7 +192,15 @@ b = b(active);
 % A V_new = V_old - dt * b.
 % This is also the moment where the 'scale' of diffusion (factors in the
 % monodomain equation) are introduced
-A = speye(size(A)) - dt * scale * A;
+switch timestepping
+    case 'implicit'
+        B = speye(size(A));
+        A = speye(size(A)) - dt * scale * A;
+    case 'crank-nicholson'
+        B = speye(size(A)) + dt * scale / 2 * A;
+        A = speye(size(A)) - dt * scale / 2 * A;
+        
+end
 
 end
 
