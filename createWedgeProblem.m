@@ -35,20 +35,20 @@ dy = Ly / Ny;
 [X,Y] = meshgrid( linspace(0,Lx-dx,Nx) + dx/2,   linspace(0,Ly-dy,Ny) + dy/2 );
 
 % Initialise occupancy map
-occ_map = zeros(size(Y));
+occ_map = false(size(Y));
 
 % Channel entrance
-occ_map( X > channel_start & X < channel_start+channel_constant_length &  abs( Y - Ly/2 ) >= channel_start_width/2 ) = 1;
+occ_map( X > channel_start & X < channel_start+channel_constant_length &  abs( Y - Ly/2 ) >= channel_start_width/2 ) = true;
 
 % Channel exit
-occ_map( X < channel_end & X > channel_end-channel_constant_length &  abs( Y - Ly/2 ) >= channel_end_width/2 ) = 1;
+occ_map( X < channel_end & X > channel_end-channel_constant_length &  abs( Y - Ly/2 ) >= channel_end_width/2 ) = true;
 
 % Channel opening region
-occ_map( X >= channel_start+channel_constant_length & X <= channel_end-channel_constant_length & abs( Y - Ly/2) >= ( channel_start_width/2 + (channel_end_width - channel_start_width) / ( 2 * ( channel_end - channel_start - 2*channel_constant_length) ) * (X - channel_start - channel_constant_length) ) ) = 1;
+occ_map( X >= channel_start+channel_constant_length & X <= channel_end-channel_constant_length & abs( Y - Ly/2) >= ( channel_start_width/2 + (channel_end_width - channel_start_width) / ( 2 * ( channel_end - channel_start - 2*channel_constant_length) ) * (X - channel_start - channel_constant_length) ) ) = true;
 
 
 %%% Define volumes of each element
-Vfrac = ~occ_map;      % Volume fraction of one in all non-occupied elements (no elements are partially occupied)
+Vfrac = double(~occ_map);      % Volume fraction of one in all non-occupied elements (no elements are partially occupied)
 
 
 %%% Create stimulus sites
@@ -107,7 +107,6 @@ problem.nodeX = nodeX;
 problem.nodeY = nodeY;
 problem.stim_sites1 = stim_sites1;
 problem.stim_sites2 = stim_sites2;
-problem.cell_models = cell_models;
 problem.cell_models = cell_models;
 problem.model_assignments = model_assignments;
 

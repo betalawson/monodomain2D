@@ -18,7 +18,7 @@ Cm = 1;                                   % Tissue capacitance per unit area (?F
 % Stimulus settings
 stim_dur = 1;                             % Stimulus duration (ms)
 stim_amp = 52;                            % Amplitude of stimulus per unit area (?A/cm²)
-stim_times1 = [20];  % Vector of times to stimulate sites marked as a primary stimulus (ms)
+stim_times1 = [0];  % Vector of times to stimulate sites marked as a primary stimulus (ms)
 stim_times2 = [];  % Vector of times to stimulate sites marked as a secondary stimulus (ms)
 
 % Timestepping and solution methods
@@ -27,6 +27,7 @@ dt = 0.01;                                % Timestep (ms)
 reac_per_diffuse = 1;                     % Number of reaction steps to perform before each diffusive update
 timestepping = 'implicit';                % Timestepping for diffusive updates: set to 'implicit' or 'crank-nicholson'
 diff_exact = 0;                           % Require exact solves (direct methods) for linear system in diffusive updates
+react_local = 0;                          % Integrate reaction terms 'locally' or over whole CV
 
 % Plotting
 visualise = 1;                            % Flag for whether to visualise or not
@@ -44,9 +45,14 @@ load([problem_name,'.mat'], 'problem');
 scale = lambda / (lambda + 1) / chi / Cm;
 
 % Build the matrix representing the linear system constructed for diffusive
-% updates - this code also outputs a list of which sites are actually
-% active in the model
-[A, B, b, active] = encodeDiffusiveProblem(problem.D_tensor, problem.Vfrac, problem.grid, dt, scale, timestepping);
+% updates - this code also outputs some extra calculated mesh information
+% (including a list of which nodes are active)
+[A, B, b, mesh] = encodeDiffusiveProblem(problem.occ_map, problem.D_tensor, problem.Vfrac, problem.grid, dt, scale, timestepping);
+
+% Read out the list of active nodes from mesh file for notational
+% cleanliness
+active = mesh.active;
+
 % Read out the number of nodes to solve at
 N = length(active);
 
@@ -105,12 +111,11 @@ while t < t_end
         % Process reaction update - uses current voltage values and current
         % state variable values, S. Only processes active sites
         tic;
-        [I_ion, S_active] = processReaction(V(active), S(active,:), dt, I_stim(active), cell_models, model_assignments(active));
+        [I_ion, S] = processReaction(V, S, dt, I_stim, cell_models, model_assignments, react_local, mesh);
         reac_time = reac_time + toc;
         
         % Update V and S at the active sites using the calculated value
-        S(active,:) = S_active;
-        V(active) = V(active) - dt * (1/Cm) * (I_ion + I_stim(active));
+        V(active) = V(active) - dt * (1/Cm) * (I_ion(active) + I_stim(active));
         
     end
         

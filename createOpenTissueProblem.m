@@ -1,12 +1,17 @@
-function createOpenTissueProblem(filename)
+function createOpenTissueProblem(filename, N)
 % This function creates a wedge problem
 
 % Define the diffusion tensor
 D = [ 3, 0; 0, 3 ];
 
 % Define the number of elements in the problem
-Nx = 1000;
-Ny = 1000;
+if nargin > 1
+    Nx = N;
+    Ny = N;
+else
+    Nx = 100;
+    Ny = 100;
+end
 
 % Define the physical size of the problem (in centimetres)
 Lx = 1;
@@ -27,7 +32,7 @@ dy = Ly / Ny;
 [X,Y] = meshgrid( linspace(0,Lx-dx,Nx) + dx/2,   linspace(0,Ly-dy,Ny) + dy/2 );
 
 % Initialise occupancy map
-occ_map = zeros(size(Y));
+occ_map = false(size(Y));
 
 %%% Define volumes of each element
 Vfrac = ~occ_map;      % Volume fraction of one in all non-occupied elements (no elements are partially occupied)
@@ -44,7 +49,7 @@ stim_sites1 = false(size(nodeY));
 stim_sites2 = false(size(nodeY));
 
 % Set the bottom-left corner to be stimulated
-stim_sites1(nodeX <= 0.1) = true;
+stim_sites1( (Ly - nodeY) <= 0.1) = true;
 stim_sites2( sqrt(nodeX.^2 + nodeY.^2) <= stim_radius) = true;
 
 

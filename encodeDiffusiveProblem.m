@@ -1,4 +1,4 @@
-function [A, B, b, active] = encodeDiffusiveProblem( D_tensor, Vfrac, grid, dt, scale, timestepping )
+function [A, B, b, mesh] = encodeDiffusiveProblem( occ_map, D_tensor, Vfrac, grid, dt, scale, timestepping )
 
 % First, create a map informing which of the four elements surrounding
 % every node is filled with fibrosis or not (causing it not to contribute
@@ -33,13 +33,9 @@ dy = grid.dy;
 % Read out the size of the input matrices
 [Ny, Nx] = size(D_xx);
 
-% Create an occupancy map that tracks which locations are actually
-% non-diffusive (fibrotic)
-occ_map = ( abs(D_xx) + abs(D_xy) + abs(D_yy) ) < 1e-10;
-
 % Add a layer of fibrosis around the occupancy map to ease the
 % implementation of no-flux boundary conditions on the outside
-occ_map_ext = [ones(1,Nx+2); [ones(Ny,1), occ_map, ones(Ny,1)]; ones(1,Nx+2) ];
+occ_map_ext = [true(1,Nx+2); [true(Ny,1), occ_map, true(Ny,1)]; true(1,Nx+2) ];
 
 % Match this with a layer of zero diffusivity around the diffusivity maps
 % provided
@@ -89,16 +85,16 @@ Nf = (Nx+3)*(Ny+3);
 % (i.e. occupancy matrix becomes a vector)
 
 % Convert occupancy and diffusivities to vectors
-occ_v = occ_map_ext'; occ_v = occ_v(:);
+occ_v_ext = occ_map_ext'; occ_v_ext = occ_v_ext(:);
 D_xx_v = D_xx_ext'; D_xx_v = D_xx_v(:);
 D_xy_v = D_xy_ext'; D_xy_v = D_xy_v(:);
 D_yy_v = D_yy_ext'; D_yy_v = D_yy_v(:);
 
 % Vertical fluxes through the control volume boundaries [dl, dr, ul, ur]
-J_W = Vfrac_ext .* ~occ_v .* ( 1 / (dx*dy) ) .* ( [ -D_xy_v * dy/2 - D_yy_v * 3*dx/4, D_xy_v * dy/2 - D_yy_v * dx/4, -D_xy_v * dy/2 + D_yy_v * 3*dx/4, D_xy_v * dy/2 + D_yy_v * dx/4 ] );
-J_E = Vfrac_ext .* ~occ_v .* ( 1 / (dx*dy) ) .* ( [ -D_xy_v * dy/2 - D_yy_v * dx/4, D_xy_v * dy/2 - D_yy_v * 3*dx/4, -D_xy_v * dy/2 + D_yy_v * dx/4, D_xy_v * dy/2 + D_yy_v * 3*dx/4 ] );
-J_S = Vfrac_ext .* ~occ_v .* ( 1 / (dx*dy) ) .* ( [ -D_xy_v * dx/2 - D_xx_v * 3*dy/4, -D_xy_v * dx/2 + D_xx_v * 3*dy/4, D_xy_v * dx/2 - D_xx_v * dy/4, D_xy_v * dx/2 + D_xx_v * dy/4 ] );
-J_N = Vfrac_ext .* ~occ_v .* ( 1 / (dx*dy) ) .* ( [ -D_xy_v * dx/2 - D_xx_v * dy/4, -D_xy_v * dx/2 + D_xx_v * dy/4, D_xy_v * dx/2 - D_xx_v * 3*dy/4, D_xy_v * dx/2 + D_xx_v * 3*dy/4 ] );
+J_W = Vfrac_ext .* ~occ_v_ext .* ( 1 / (dx*dy) ) .* ( [ -D_xy_v * dy/2 - D_yy_v * 3*dx/4, D_xy_v * dy/2 - D_yy_v * dx/4, -D_xy_v * dy/2 + D_yy_v * 3*dx/4, D_xy_v * dy/2 + D_yy_v * dx/4 ] );
+J_E = Vfrac_ext .* ~occ_v_ext .* ( 1 / (dx*dy) ) .* ( [ -D_xy_v * dy/2 - D_yy_v * dx/4, D_xy_v * dy/2 - D_yy_v * 3*dx/4, -D_xy_v * dy/2 + D_yy_v * dx/4, D_xy_v * dy/2 + D_yy_v * 3*dx/4 ] );
+J_S = Vfrac_ext .* ~occ_v_ext .* ( 1 / (dx*dy) ) .* ( [ -D_xy_v * dx/2 - D_xx_v * 3*dy/4, -D_xy_v * dx/2 + D_xx_v * 3*dy/4, D_xy_v * dx/2 - D_xx_v * dy/4, D_xy_v * dx/2 + D_xx_v * dy/4 ] );
+J_N = Vfrac_ext .* ~occ_v_ext .* ( 1 / (dx*dy) ) .* ( [ -D_xy_v * dx/2 - D_xx_v * dy/4, -D_xy_v * dx/2 + D_xx_v * dy/4, D_xy_v * dx/2 - D_xx_v * 3*dy/4, D_xy_v * dx/2 + D_xx_v * 3*dy/4 ] );
 
 % First create lists of the i and j co-ordinates of all *node* points
 j = ceil( (1:Nn) / (Nx+1) );
@@ -128,39 +124,39 @@ i_v = []; j_v = []; val_v = [];
 
 % Node's dependence on itself
 i_v = [i_v, nlist]; j_v = [j_v, nlist];
-val_v = [val_v; ( dx/2 * J_W(eloc_ur,1) + dy/2 * J_S(eloc_ur,1) + dx/2 * J_E(eloc_ul,2) - dy/2 * J_S(eloc_ul,2) - dx/2 * J_W(eloc_dr,3) + dy/2 * J_N(eloc_dr,3) - dx/2 * J_E(eloc_dl,4) - dy/2 * J_N(eloc_dl,4) ) ./ CV_vols ];
+val_v = [val_v; ( dx/2 * J_W(eloc_ur,1) + dy/2 * J_S(eloc_ur,1) + dx/2 * J_E(eloc_ul,2) - dy/2 * J_S(eloc_ul,2) - dx/2 * J_W(eloc_dr,3) + dy/2 * J_N(eloc_dr,3) - dx/2 * J_E(eloc_dl,4) - dy/2 * J_N(eloc_dl,4) ) ./ (CV_vols .* Vfrac_nodes) ];
 
 % Node's dependence on North-East node
 i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)+1];
-val_v = [val_v; ( dx/2 * J_W(eloc_ur,4) + dy/2 * J_S(eloc_ur,4) ) ./ CV_vols];
+val_v = [val_v; ( dx/2 * J_W(eloc_ur,4) + dy/2 * J_S(eloc_ur,4) ) ./ (CV_vols .* Vfrac_nodes)];
 
 % Node's dependence on North-West node
 i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)-1];
-val_v = [val_v; ( dx/2 * J_E(eloc_ul,3) - dy/2 * J_S(eloc_ul,3) ) ./ CV_vols];
+val_v = [val_v; ( dx/2 * J_E(eloc_ul,3) - dy/2 * J_S(eloc_ul,3) ) ./ (CV_vols .* Vfrac_nodes)];
 
 % Node's dependence on South-East node
 i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)+1];
-val_v = [val_v; (- dx/2 * J_W(eloc_dr,2) + dy/2 * J_N(eloc_dr,2) ) ./ CV_vols];
+val_v = [val_v; (- dx/2 * J_W(eloc_dr,2) + dy/2 * J_N(eloc_dr,2) ) ./ (CV_vols .* Vfrac_nodes)];
 
 % Node's dependence on South-West node
 i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)-1];
-val_v = [val_v; (- dx/2 * J_E(eloc_dl,1) - dy/2 * J_N(eloc_dl,1) ) ./ CV_vols];
+val_v = [val_v; (- dx/2 * J_E(eloc_dl,1) - dy/2 * J_N(eloc_dl,1) ) ./ (CV_vols .* Vfrac_nodes)];
 
 % Node's dependence on East node
 i_v = [i_v, nlist]; j_v = [j_v, nlist+1];
-val_v = [val_v; (dx/2 * J_W(eloc_ur,2) + dy/2 * J_S(eloc_ur,2) - dx/2 * J_W(eloc_dr,4) + dy/2 * J_N(eloc_dr,4) ) ./ CV_vols];
+val_v = [val_v; (dx/2 * J_W(eloc_ur,2) + dy/2 * J_S(eloc_ur,2) - dx/2 * J_W(eloc_dr,4) + dy/2 * J_N(eloc_dr,4) ) ./ (CV_vols .* Vfrac_nodes)];
 
 % Node's dependence on West node
 i_v = [i_v, nlist]; j_v = [j_v, nlist-1];
-val_v = [val_v; (dx/2 * J_E(eloc_ul,1) - dy/2 * J_S(eloc_ul,1) - dx/2 * J_E(eloc_dl,3) - dy/2 * J_N(eloc_dl,3) ) ./ CV_vols];
+val_v = [val_v; (dx/2 * J_E(eloc_ul,1) - dy/2 * J_S(eloc_ul,1) - dx/2 * J_E(eloc_dl,3) - dy/2 * J_N(eloc_dl,3) ) ./ (CV_vols .* Vfrac_nodes)];
 
 % Node's dependence on North node
 i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)];
-val_v = [val_v; (dx/2 * J_W(eloc_ur,3) + dy/2 * J_S(eloc_ur,3) + dx/2 * J_E(eloc_ul,4) - dy/2 * J_S(eloc_ul,4) ) ./ CV_vols];
+val_v = [val_v; (dx/2 * J_W(eloc_ur,3) + dy/2 * J_S(eloc_ur,3) + dx/2 * J_E(eloc_ul,4) - dy/2 * J_S(eloc_ul,4) ) ./ (CV_vols .* Vfrac_nodes)];
 
 % Node's dependence on South node
 i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)];
-val_v = [val_v; (- dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(eloc_dl,2) - dy/2 * J_N(eloc_dl,2) ) ./ CV_vols];
+val_v = [val_v; (- dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(eloc_dl,2) - dy/2 * J_N(eloc_dl,2) ) ./ (CV_vols .* Vfrac_nodes)];
 
 % Before creating the matrix, set any values that appear to be zero (but
 % are not due to rounding error) to explicitly zero so they are not stored
@@ -177,7 +173,7 @@ A = A(nlist,nlist);
 b = zeros(Nn,1);
 
 % Track which nodes are 'active' (not buried completely in fibrosis)
-active = ~all([occ_v(eloc_dl), occ_v(eloc_dr), occ_v(eloc_ul), occ_v(eloc_ur) ], 2);
+active = ~all([occ_v_ext(eloc_dl), occ_v_ext(eloc_dr), occ_v_ext(eloc_ul), occ_v_ext(eloc_ur) ], 2);
 
 % Reduce diffusive update matrix and vector according to these nodes. This
 % also removes rows of zeros from the matrix, allowing use of backslash
@@ -199,8 +195,20 @@ switch timestepping
     case 'crank-nicholson'
         B = speye(size(A)) + dt * scale / 2 * A;
         A = speye(size(A)) - dt * scale / 2 * A;
-        
+    otherwise
+        error('ERROR: Timestepping must be ''implicit'' or ''crank-nicholson''');
 end
+
+
+% Also store quantities created here as mesh information that could
+% potentially be used later
+mesh.dx = dx;
+mesh.dy = dy;
+mesh.Nx = Nx;
+mesh.Ny = Ny;
+mesh.occ_v_ext = occ_v_ext;
+mesh.active = active;
+mesh.CV_vols = CV_vols;
 
 end
 
