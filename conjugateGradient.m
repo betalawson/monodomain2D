@@ -19,7 +19,8 @@ rsold = r' * r;
 
 % Now loop over finding optimal step length in this direction, and then
 % calculating a new search direction, until tolerance is met
-while sqrt(rsold) > tol
+iters = 1;
+while sqrt(rsold) > tol && iters < 1000
     
     % Store matrix vector product
     Ad = A * d;
@@ -41,6 +42,9 @@ while sqrt(rsold) > tol
     
     % Now new information becomes old for start of new loop
     rsold = rsnew;
+    
+    % Update iteration counter
+    iters = iters + 1;
 
 end
 

@@ -1,9 +1,11 @@
-function simulateMonodomain(problem)
+function CV = calculateCV(problem)
 % This function simulates the monodomain equation on a mesh where the
 % volume fraction (fraction of accessible material, as opposed to say
 % collagenous occlusions due to fibrosis) and conductivity tensor are
 % allowed to vary between different elements. Completely non-conductive
-% elements may also be included in the mesh.
+% elements may also be included in the mesh. The function measures
+% wavespeed, assuming a wave moving horizontally across the domain from the
+% left.
 %
 % A vertex-centred finite volume method is used to numerically integrate
 % the monodomain equation, with bilinear interpolation allowing for
@@ -26,16 +28,16 @@ stim_times2 = [352.5];                    % Vector of times to stimulate sites m
 
 % Timestepping and solution methods
 t_end = 2000;                             % Simulation time (ms)
-dt = 0.1;                                 % Timestep (ms)
+dt = 0.1;                                % Timestep (ms)
 reac_per_diffuse = 1;                     % Number of reaction steps to perform before each diffusive update
 timestepping = 'implicit';                % Timestepping for diffusive updates: set to 'implicit' or 'crank-nicholson'
-nonlocal_timederiv = 0;                   % Specifies whether or not to nonlocally integrate the time derivative term
-nonlocal_react = 0;                       % Specifies whether or not to nonlocally integrate the reaction term
+%nonlocal_timederiv = 1;                   % Specifies whether or not to nonlocally integrate the time derivative term
+%nonlocal_react = 1;                       % Specifies whether or not to nonlocally integrate the reaction term
 solve_exact = 0;                          % Require exact solves (direct methods) for the linear systems that result from the time and space discretisations
 react_parallel = 0;                       % Make use of multiple cores in processing of the reaction terms
 
 % Plotting
-visualise = 1;                            % Flag for whether to visualise or not
+visualise = 0;                            % Flag for whether to visualise or not
 save_anim = 1;                            % Flag for whether or not to save an animation (filename same as problem name, CAREFUL not to overwite!)
 plot_interval = 2.5;                      % Time interval for plotting (ms)
 
@@ -82,6 +84,16 @@ nodeY = problem.nodeY;
 nodeX = nodeX'; nodeX = nodeX(:);
 nodeY = nodeY'; nodeY = nodeY(:);
 
+% Find mesh dimensions
+Lx = max(nodeX(:)); Ly = max(nodeY(:));
+
+% Set up the wavespeed measurement regions
+start_sites = find( nodeX(:) >= 0.35 * Lx );
+end_sites = find( nodeX(:) >= 0.95 * Lx );
+measure_dist = min( nodeX(end_sites) ) - min( nodeX(start_sites) );
+stim_times2 = []; % Turn off other stimulus to be safe
+
+
 % Create video object if one is needed
 if save_anim && visualise
     vid_obj = VideoWriter('outputVideo.avi');
@@ -93,6 +105,7 @@ end
 
 % Loop over time integrations
 t = 0;
+start_reached = 0; end_reached = 0;
 while t < t_end
     
     % Increment time
@@ -120,10 +133,12 @@ while t < t_end
     
     
     %%% PROCESS UPDATE
+    
     V_active = takeTimestep(V(active), J, A_new, A_old, A_J, solve_exact);
     V(active) = V_active;
     
     
+    %%% VISUALISATION
     
     % Check plot frequency, plot if hit
     if visualise && ( t - floor(t / plot_interval) * plot_interval <= dt*reac_per_diffuse )
@@ -142,9 +157,39 @@ while t < t_end
         
     end
     
+    
+    %%% CONDUCTION VELOCITY CALCULATION
+    
+    % Check if any of the start sites has been stimulated
+    if ~start_reached && any(V(start_sites) > -30)
+        start_reached = 1;
+        start_time = t;
+    end
+    
+    % Check if the end site has been stimulated
+    if ~end_reached && any(V(end_sites) > -30)
+        end_reached = 1;
+        CV = measure_dist / ((t-start_time) / 1000);
+        fprintf('Conduction velocity was %g cm/s \n\n', CV);
+        return;
+    end
+    
+    % Check if no sites are active post-stimulus, indicating a wave that
+    % died out
+    if all(V < -65) && t > 100
+        fprintf('Wavefront died out before CV was measured! Fibrosis must have blocked its progress. \n');
+        CV = NaN;
+        return;
+    end
+    
 end
 
 % Close video object if one was created
 if save_anim && visualise
     close(vid_obj);
 end
+
+% Program should exit after CV was successfully calculated. Output a
+% message here indicating something else going wrong
+fprintf('CV measurement failed. Excitation still present, implying a longer simulation time was required. \n');
+CV = NaN;

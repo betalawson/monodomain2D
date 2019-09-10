@@ -22,5 +22,5 @@ for k = 1:length(cell_models)
     
 end
 
-% Turn off all inactive sites (NaN is used for removal from plotting)
+% Turn off inactive sites (NaN is used for removal from plotting)
 V(~active) = NaN;

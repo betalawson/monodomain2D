@@ -1,30 +1,24 @@
 function createOpenTissueProblem(filename, N)
-% This function creates a wedge problem
+% This function creates tissue of a single consistent property, with no
+% occlusions. Stimulus is placed at one end
 
 % Define the diffusion tensor
-D = [ 3, 0; 0, 3 ];
+D = [ 3, 0; 0, 1 ];    % Fibre-biased conduction
 
 % Define the number of elements in the problem
-if nargin > 1
-    Nx = N;
-    Ny = N;
-else
-    Nx = 100;
-    Ny = 100;
-end
+Nx = N;
+Ny = N;
 
 % Define the physical size of the problem (in centimetres)
 Lx = 1;
 Ly = 1;
 
-% Specify stimulus region size (bottom left corner)
-stim_radius = 0.1;
+
+% Stimulus regions are the left and right edges of the domain (left
+% primary, right secondary)
+stim_width = 0.05;            % Width of stimulus regions
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-
-%%% Create a domain unoccupied by fibrosis. Volume fraction is one
-%%% everywhere, occupancy (of blockage) zero everywhere
 
 % Determine x and y co-ordinates of all element centres
 dx = Lx / Nx;
@@ -34,9 +28,9 @@ dy = Ly / Ny;
 % Initialise occupancy map
 occ_map = false(size(Y));
 
-%%% Define volumes of each element
-Vfrac = ~occ_map;      % Volume fraction of one in all non-occupied elements (no elements are partially occupied)
 
+%%% Define volumes of each element
+Vfrac = double(~occ_map);      % Volume fraction of one in all non-occupied elements (no elements are partially occupied)
 
 %%% Create stimulus sites
 
@@ -48,9 +42,8 @@ Vfrac = ~occ_map;      % Volume fraction of one in all non-occupied elements (no
 stim_sites1 = false(size(nodeY));
 stim_sites2 = false(size(nodeY));
 
-% Set the bottom-left corner to be stimulated
-stim_sites1( (Ly - nodeY) <= 0.1) = true;
-stim_sites2( sqrt(nodeX.^2 + nodeY.^2) <= stim_radius) = true;
+% Set edges to be stimulus sites as requested
+stim_sites1(nodeX <= stim_width) = true;
 
 
 
@@ -60,8 +53,8 @@ stim_sites2( sqrt(nodeX.^2 + nodeY.^2) <= stim_radius) = true;
 cell_models = {'TT3epi'};
 % Assign models to cells (by number)
 model_assignments = zeros(size(nodeX));
-model_assignments(:) = 1;
-
+model_assignments(nodeX < 1) = 1;
+model_assignments(nodeX >= 1) = 1;
 
 
 
@@ -89,6 +82,8 @@ problem.grid.Lx = Lx;
 problem.grid.Ly = Ly;
 problem.Nx = Nx;
 problem.Ny = Ny;
+nodeX = nodeX'; nodeX = nodeX(:);
+nodeY = nodeY'; nodeY = nodeY(:);
 problem.nodeX = nodeX;
 problem.nodeY = nodeY;
 problem.stim_sites1 = stim_sites1;
@@ -98,9 +93,6 @@ problem.model_assignments = model_assignments;
 
 % Save the problem
 save([filename,'.mat'],'problem');
-
-
-
 
 end
 

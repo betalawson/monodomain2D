@@ -47,7 +47,6 @@ K_mNa_NaCa = 87.5;    % Half-saturation constant for I_NaCa - Na+ conc. (mM)
 k_sat = 0.1;          % Saturation factor for I_NaCa
 alpha = 2.5;          % Enhancement factor for outward I_NaCa
 
-
 % Calculate useful basic quantities
 RTonF = R * T / F;
 FonRT = 1 / RTonF;
