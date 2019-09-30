@@ -1,4 +1,4 @@
-function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = RLUpdateTT3M(V, S, dt, I_stim)
+function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = RLUpdateTT3endoMod(V, S, dt, params)
 % This function performs a Rush Larsen timestep of the specified length for
 % the reduced Ten-Tusscher 2006 model for ventricular myocytes. The
 % implementation is according to the online source code, except with the
@@ -13,18 +13,18 @@ T = 310;              % Temperature (K)
 
 % Define basic biophysical properties
 Na_o = 140;           % Extracellular Na+ concentration
-K_o = 5.4;            % Extracellular K+ concentration
+K_o = params(2);      % Extracellular K+ concentration (base)
 Ca_o = 2;             % Extracellular Ca2+ concentration
 Na_i = 7.67;          % Intracellular Na+ concentration (fixed in reduced model)
-K_i = 138.3;          % Intracellular K+ concentration (fixed in reduced model)
+K_i = params(3);      % Intracellular K+ concentration (fixed in reduced model)
 Ca_i = 0.00007;       % Intracellular Ca2+ concentration (fixed in reduced model)
 
 
 % Define channel conductances and other current strengths
 g_Na = 14.838;        % Maximum conductance of I_Na (nS/pF)
-g_to = 0.294;         % Maximum conductance of I_to (nS/pF)
+g_to = 0.073;         % Maximum conductance of I_to (nS/pF)
 g_Kr = 0.101;         % Maximum conductance of I_Kr (nS/pF)
-g_Ks = 0.06425;   % Maximum conductance of I_Ks (nS/pF)
+g_Ks = 0.392;         % Maximum conductance of I_Ks (nS/pF)
 g_K1 = 5.405;         % Maximum conductance of I_K1 (nS/pF)
 g_CaL = 0.2786;       % Maximum conductance of I_CaL (cm^3 ?F^-1 s^-1)        
 k_NaK = 2.724;        % Maximum I_NaK (pA/pF)
@@ -46,6 +46,26 @@ K_mCa = 1.38;         % Half-saturation constant for I_NaCa - Ca2+ conc. (mM)
 K_mNa_NaCa = 87.5;    % Half-saturation constant for I_NaCa - Na+ conc. (mM)
 k_sat = 0.1;          % Saturation factor for I_NaCa
 alpha = 2.5;          % Enhancement factor for outward I_NaCa
+
+
+% Extra things for hypoxia effects
+ATP_i = params(1);
+h_ATP = 2;                                             % Hill coefficient for effect of hypoxia on hypoxia-activated current
+h_ATP_Ca = 2.6;                                        % Hill coefficient for effect of hypoxia on L-type Ca2+ current
+k_ATP = -0.0942857142857 * ATP_i + 0.683142857143;     % Reference value for effect of hypoxia on hypoxia-activated current (mM)
+k_ATP_Ca = 1.4;                                        % Reference value for effect of hypoxia on L-type Ca2+ current (mM)
+nichols_area = 0.00005;                                % Nichol's area (in cm^2)
+power_ATP_K = 0.24;                                    % Exponent for K+ dependence of hypoxia-activated current
+
+% Apply acidosis
+V_mod = params(4);                        % Modification of reversal potentials
+g_Na = g_Na * params(5);                  % Reduction in I_Na due to pH change
+g_CaL = g_CaL * params(6);                % Reduction in I_Na due to pH change
+k_NaCa = k_NaCa * params(7);              % Reduction in I_Na due to pH change
+
+% Apply hypoxia affect on L-type Ca2+ current
+g_CaL = g_CaL / ( 1 + ( k_ATP_Ca / ATP_i ) ^ h_ATP_Ca );
+
 
 
 % Calculate useful basic quantities
@@ -90,8 +110,8 @@ tau_j = 1 ./ ( ~V_m40 .* ( ( -25428 * exp(0.2444 * V) - 0.000006948 * exp(-0.043
 
 % Transient outward K+ gates
 r_inf = 1 ./ ( 1 + exp( (20-V) / 6 ) );
-s_inf = 1 ./ ( 1 + exp( (V + 20) / 5 ) );
-tau_s = 85 * exp( -( (V+45).^2 / 320) ) + 5 ./ ( 1 + exp( (V - 20) / 5 ) ) + 3;
+s_inf = 1 ./ ( 1 + exp( (V + 28) / 5 ) );
+tau_s = 1000 * exp( -(V+67).^2 / 1000 ) + 8;
 
 % Delayed rectifier K+ gates
 xr1_inf = 1 ./ ( 1 + exp( -( V + 26) / 7 ) );
@@ -114,11 +134,23 @@ tau_f2 = 600 * exp( -(V+27).^2 / 170 ) + 7.75 ./ ( 1 + exp( (25-V)/10 ) ) + 16 .
 
 
 
+%%% Update gating variables using their steady state values and rate
+%%% constants (exponential integration as per Rush Larsen)
+m = m_inf + (m - m_inf) .* exp( -dt ./ tau_m );
+h = h_inf + (h - h_inf) .* exp( -dt ./ tau_h );
+j = j_inf + (j - j_inf) .* exp( -dt ./ tau_j );
+s = s_inf + (s - s_inf) .* exp( -dt ./ tau_s );
+xr1 = xr1_inf + (xr1 - xr1_inf) .* exp( -dt ./ tau_xr1 );
+xs = xs_inf + (xs - xs_inf) .* exp( -dt ./ tau_xs );
+f = f_inf + (f - f_inf) .* exp( -dt ./ tau_f );
+f2 = f2_inf + (f2 - f2_inf) .* exp( -dt ./ tau_f2 );
+
+
 %%% Calculate strengths of all currents for the current (V,S) state (post gating updates)
 
 %%% Na+ currents
 % Fast inward Na+ current
-I_Na = g_Na * m .* m .* m .* h .* j .* dV_Na;
+I_Na = g_Na * m .* m .* m .* h .* j .* (V - V_mod - E_Na);
 % Background Na+ current
 I_bNa = g_bNa * dV_Na;
 
@@ -129,13 +161,15 @@ I_to = g_to * r_inf .* s .* dV_K;
 I_Kr = g_Kr * K_ofactor * xr1 .* xr2_inf .* dV_K;
 I_Ks = g_Ks .* xs .* xs .* (V - E_Ks);
 % Inward rectifier K+ current
-I_K1 = g_K1 * K_ofactor * xK1_inf .* dV_K;
+I_K1 = g_K1 * xK1_inf .* dV_K;
 % K+ pump
 I_pK = g_pK * dV_K ./ ( 1 + exp((25 - V)/5.98) );
+% Hypoxia-activated K+ current
+I_KATP =  0.000195 / nichols_area / ( 1 + ( ATP_i / k_ATP ) ^ h_ATP ) * ( K_o / 4 )^power_ATP_K .* (V - E_k);
 
 %%% Ca2+ currents
 % L-type Ca2+ current
-I_CaL = g_CaL * d_inf .* f .* f2 .* (V - 60);
+I_CaL = g_CaL * d_inf .* f .* f2 .* (V - V_mod - 60);
 % Ca2+ pump
 I_pCa = g_pCa * Ca_i ./ ( K_pCa + Ca_i );
 % Background Ca2+ current
@@ -150,19 +184,8 @@ I_NaCa = k_NaCa * ( expFVonRTgamma_minus_one .* expFVonRT .* Na_i .* Na_i .* Na_
 
 
 %%% Total ion transfer in/out of cell membrane
-I_ion = I_Na + I_bNa + I_CaL + I_pCa + I_bCa + I_to + I_Kr + I_Ks + I_K1 + I_pK + I_NaK + I_NaCa;
+I_ion = I_Na + I_bNa + I_CaL + I_pCa + I_bCa + I_to + I_Kr + I_Ks + I_K1 + I_KATP + I_pK + I_NaK + I_NaCa;
 
-
-%%% Update gating variables using their steady state values and rate
-%%% constants (exponential integration as per Rush Larsen)
-m = m_inf + (m - m_inf) .* exp( -dt ./ tau_m );
-h = h_inf + (h - h_inf) .* exp( -dt ./ tau_h );
-j = j_inf + (j - j_inf) .* exp( -dt ./ tau_j );
-s = s_inf + (s - s_inf) .* exp( -dt ./ tau_s );
-xr1 = xr1_inf + (xr1 - xr1_inf) .* exp( -dt ./ tau_xr1 );
-xs = xs_inf + (xs - xs_inf) .* exp( -dt ./ tau_xs );
-f = f_inf + (f - f_inf) .* exp( -dt ./ tau_f );
-f2 = f2_inf + (f2 - f2_inf) .* exp( -dt ./ tau_f2 );
 
 %%% Repack all state variables back into the state matrix
 S = [m, h, j, s, xr1, xs, f, f2];

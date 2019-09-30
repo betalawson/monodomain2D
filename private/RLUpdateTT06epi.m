@@ -149,22 +149,6 @@ fCass_inf = 0.6 ./ ( 1 + (Ca_ss/0.05).^2 ) + 0.4;
 tau_fCass = 2 + 80 / ( 1 + (Ca_ss/0.05).^2 );
 
 
-%%% Update gating variables using their steady state values and rate
-%%% constants (exponential integration as per Rush Larsen)
-m = m_inf + (m - m_inf) .* exp( -dt ./ tau_m );
-h = h_inf + (h - h_inf) .* exp( -dt ./ tau_h );
-j = j_inf + (j - j_inf) .* exp( -dt ./ tau_j );
-r = r_inf + (r - r_inf) .* exp( -dt ./ tau_r );
-s = s_inf + (s - s_inf) .* exp( -dt ./ tau_s );
-xr1 = xr1_inf + (xr1 - xr1_inf) .* exp( -dt ./ tau_xr1 );
-xr2 = xr2_inf + (xr2 - xr2_inf) .* exp( -dt ./ tau_xr2 );
-xs = xs_inf + (xs - xs_inf) .* exp( -dt ./ tau_xs );
-d = d_inf + (d - d_inf) .* exp( -dt ./ tau_d );
-f = f_inf + (f - f_inf) .* exp( -dt ./ tau_f );
-f2 = f2_inf + (f2 - f2_inf) .* exp( -dt ./ tau_f2 );
-fCass = fCass_inf + (fCass - fCass_inf) .* exp( -dt ./ tau_fCass );
-
-
 %%% Calculate some state-dependent values for Ca2+ handling
 k_casr = k_casrmax - ( k_casrmax - k_casrmin) ./ ( 1 + (EC ./ Ca_sr ).^2 );
 k_1 = k_1base ./ k_casr;
@@ -241,6 +225,22 @@ Ca_sr = Ca_sr + dt ./ ( 1 + buf_sr * K_bufsr ./ ( Ca_sr + K_bufsr ).^2 ) .* ( -I
 
 %%% Updates to other state variables that don't permit the Rush-Larsen update
 Rb = Rb + dt * (-k_2 * Ca_ss .* Rb + k_4 * (1 - Rb) );
+
+
+%%% Update gating variables using their steady state values and rate
+%%% constants (exponential integration as per Rush Larsen)
+m = m_inf + (m - m_inf) .* exp( -dt ./ tau_m );
+h = h_inf + (h - h_inf) .* exp( -dt ./ tau_h );
+j = j_inf + (j - j_inf) .* exp( -dt ./ tau_j );
+r = r_inf + (r - r_inf) .* exp( -dt ./ tau_r );
+s = s_inf + (s - s_inf) .* exp( -dt ./ tau_s );
+xr1 = xr1_inf + (xr1 - xr1_inf) .* exp( -dt ./ tau_xr1 );
+xr2 = xr2_inf + (xr2 - xr2_inf) .* exp( -dt ./ tau_xr2 );
+xs = xs_inf + (xs - xs_inf) .* exp( -dt ./ tau_xs );
+d = d_inf + (d - d_inf) .* exp( -dt ./ tau_d );
+f = f_inf + (f - f_inf) .* exp( -dt ./ tau_f );
+f2 = f2_inf + (f2 - f2_inf) .* exp( -dt ./ tau_f2 );
+fCass = fCass_inf + (fCass - fCass_inf) .* exp( -dt ./ tau_fCass );
 
 
 %%% Repack all state variables back into the state matrix

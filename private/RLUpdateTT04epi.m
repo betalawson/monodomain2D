@@ -143,24 +143,6 @@ g_inf = 1 ./ ( 1 + Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i / (0.00035^6) .*
 tau_g = 2;
 
 
-%%% Update gating variables using their steady state values and rate
-%%% constants (exponential integration as per Rush Larsen)
-m = m_inf + (m - m_inf) .* exp( -dt ./ tau_m );
-h = h_inf + (h - h_inf) .* exp( -dt ./ tau_h );
-j = j_inf + (j - j_inf) .* exp( -dt ./ tau_j );
-r = r_inf + (r - r_inf) .* exp( -dt ./ tau_r );
-s = s_inf + (s - s_inf) .* exp( -dt ./ tau_s );
-xr1 = xr1_inf + (xr1 - xr1_inf) .* exp( -dt ./ tau_xr1 );
-xr2 = xr2_inf + (xr2 - xr2_inf) .* exp( -dt ./ tau_xr2 );
-xs = xs_inf + (xs - xs_inf) .* exp( -dt ./ tau_xs );
-d = d_inf + (d - d_inf) .* exp( -dt ./ tau_d );
-f = f_inf + (f - f_inf) .* exp( -dt ./ tau_f );
-fCa_switch = ( fCa >= fCa_inf | ~V_m60 );
-fCa = fCa_switch .* ( fCa_inf + (fCa - fCa_inf) .* exp( -dt ./ tau_fCa ) ) + ~fCa_switch .* fCa;    % Change turned off if fCa_inf > fCa and V > -60
-g_switch = ( g >= g_inf | ~V_m60 );
-g = g_switch .* ( g_inf + (g - g_inf) .* exp( -dt ./ tau_g ) ) + ~g_switch .* g;                    % Change turned off if g_inf > g and V > -60
-
-
 %%% Calculate strengths of all currents for the current (V,S) state (post gating updates)
 
 %%% Na+ currents
@@ -222,6 +204,24 @@ Ca_i = Ca_i + dt ./ ( 1 + buf_c * K_bufc ./ ( ( Ca_i + K_bufc ).^2 ) ) .* ( - (I
 
 % SR Ca2+
 Ca_sr = Ca_sr + dt ./ ( 1 + buf_sr * K_bufsr ./ ( Ca_sr + K_bufsr ).^2 ) .* Vol_c / Vol_sr .* ( -I_leak + I_up - I_rel );
+
+
+%%% Update gating variables using their steady state values and rate
+%%% constants (exponential integration as per Rush Larsen)
+m = m_inf + (m - m_inf) .* exp( -dt ./ tau_m );
+h = h_inf + (h - h_inf) .* exp( -dt ./ tau_h );
+j = j_inf + (j - j_inf) .* exp( -dt ./ tau_j );
+r = r_inf + (r - r_inf) .* exp( -dt ./ tau_r );
+s = s_inf + (s - s_inf) .* exp( -dt ./ tau_s );
+xr1 = xr1_inf + (xr1 - xr1_inf) .* exp( -dt ./ tau_xr1 );
+xr2 = xr2_inf + (xr2 - xr2_inf) .* exp( -dt ./ tau_xr2 );
+xs = xs_inf + (xs - xs_inf) .* exp( -dt ./ tau_xs );
+d = d_inf + (d - d_inf) .* exp( -dt ./ tau_d );
+f = f_inf + (f - f_inf) .* exp( -dt ./ tau_f );
+fCa_switch = ( fCa >= fCa_inf | ~V_m60 );
+fCa = fCa_switch .* ( fCa_inf + (fCa - fCa_inf) .* exp( -dt ./ tau_fCa ) ) + ~fCa_switch .* fCa;    % Change turned off if fCa_inf > fCa and V > -60
+g_switch = ( g >= g_inf | ~V_m60 );
+g = g_switch .* ( g_inf + (g - g_inf) .* exp( -dt ./ tau_g ) ) + ~g_switch .* g;                    % Change turned off if g_inf > g and V > -60
 
 
 %%% Repack all state variables back into the state matrix

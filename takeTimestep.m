@@ -1,4 +1,4 @@
-function  V = takeTimestep(V_old, J, A_new, A_old, A_J, exact)
+function  V = takeTimestep(V_old, J, J_old, A_new, A_old, A_J, exact, second_order)
 % This function takes as inputs the current 'state' (voltage and current
 % vectors) and matrices that define the numerical representation of the
 % problem such that:
@@ -13,9 +13,21 @@ function  V = takeTimestep(V_old, J, A_new, A_old, A_J, exact)
 % The matrices in question are setup to only process the active nodes, so
 % the inputs V_old and J should be lists of these values at active nodes,
 % and the output V will be only at the active nodes.
+%
+% The user specifies if second order updates are to be used. These are of
+% Adams-Bashforth type.
+
+% If first timestep, just use J_old = J
+if isempty(J_old)
+    J_old = J;
+end
 
 % Calculate the RHS vector
-b_vec = A_old * V_old - A_J * J;
+if second_order
+    b_vec = A_old * V_old - A_J * (3/2 * J - 1/2 * J_old);   % Adams-Bashforth update for reaction term
+else
+    b_vec = A_old * V_old - A_J * J;                         % Standard explicit update (with mass matrix)
+end
 
 % Solve the linear system
 if exact

@@ -1,8 +1,15 @@
-function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = RLUpdateTT3M(V, S, dt, I_stim)
+function [I_ion, S, Sinf, invtau, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = SecondOrderUpdateTT3epi(V, S, S_old, Sinf_old, invtau_old, dt, I_stim, I_stim_old)
 % This function performs a Rush Larsen timestep of the specified length for
 % the reduced Ten-Tusscher 2006 model for ventricular myocytes. The
 % implementation is according to the online source code, except with the
 % changes made to reflect the different cell types implemented.
+%
+% S_old is not used here because the TT3 reduced model contains no state
+% variables that are not gating variables.
+
+% Define which state variables are gating variables
+gating = logical([1, 1, 1, 1,  1,  1,  1, 1]);
+%                 m  h  j  s  xr1  xs  f  f2
 
 
 % Define basic constants
@@ -24,7 +31,7 @@ Ca_i = 0.00007;       % Intracellular Ca2+ concentration (fixed in reduced model
 g_Na = 14.838;        % Maximum conductance of I_Na (nS/pF)
 g_to = 0.294;         % Maximum conductance of I_to (nS/pF)
 g_Kr = 0.101;         % Maximum conductance of I_Kr (nS/pF)
-g_Ks = 0.06425;   % Maximum conductance of I_Ks (nS/pF)
+g_Ks = 0.257;         % Maximum conductance of I_Ks (nS/pF)
 g_K1 = 5.405;         % Maximum conductance of I_K1 (nS/pF)
 g_CaL = 0.2786;       % Maximum conductance of I_CaL (cm^3 ?F^-1 s^-1)        
 k_NaK = 2.724;        % Maximum I_NaK (pA/pF)
@@ -53,18 +60,6 @@ RTonF = R * T / F;
 FonRT = 1 / RTonF;
 expFVonRT = exp(FonRT * V);
 K_ofactor = sqrt(K_o / 5.4);
-
-
-% Read out variables from state variable matrix
-m = S(:,1);
-h = S(:,2);
-j = S(:,3);
-s = S(:,4);
-xr1 = S(:,5);
-xs = S(:,6);
-f = S(:,7);
-f2 = S(:,8);
-
 
 % Calculate reversal potentials
 E_Na = RTonF * log( Na_o ./ Na_i );
@@ -112,6 +107,22 @@ tau_f = 1102.5 * exp( -( (V + 27)/15).^2 ) + 200 ./ ( 1 + exp( (13 - V) / 10 ) )
 f2_inf = 0.67 ./ (1 + exp( (V + 35)/7 ) ) + 0.33;
 tau_f2 = 600 * exp( -(V+27).^2 / 170 ) + 7.75 ./ ( 1 + exp( (25-V)/10 ) ) + 16 ./ ( 1 + exp( (V+30)/10 ) );
 
+% Store all of the inverse time constants and steady state values in one 
+% big matrix each
+invtau = 1./[tau_m, tau_h, tau_j, tau_s, tau_xr1, tau_xs, tau_f, tau_f2];
+Sinf = [m_inf, h_inf, j_inf, s_inf, xr1_inf, xs_inf, f_inf, f2_inf];
+
+
+% Read out variables from state variable matrix for code legibility
+m = S(:,1);
+h = S(:,2);
+j = S(:,3);
+s = S(:,4);
+xr1 = S(:,5);
+xs = S(:,6);
+f = S(:,7);
+f2 = S(:,8);
+
 
 
 %%% Calculate strengths of all currents for the current (V,S) state (post gating updates)
@@ -153,19 +164,34 @@ I_NaCa = k_NaCa * ( expFVonRTgamma_minus_one .* expFVonRT .* Na_i .* Na_i .* Na_
 I_ion = I_Na + I_bNa + I_CaL + I_pCa + I_bCa + I_to + I_Kr + I_Ks + I_K1 + I_pK + I_NaK + I_NaCa;
 
 
-%%% Update gating variables using their steady state values and rate
-%%% constants (exponential integration as per Rush Larsen)
-m = m_inf + (m - m_inf) .* exp( -dt ./ tau_m );
-h = h_inf + (h - h_inf) .* exp( -dt ./ tau_h );
-j = j_inf + (j - j_inf) .* exp( -dt ./ tau_j );
-s = s_inf + (s - s_inf) .* exp( -dt ./ tau_s );
-xr1 = xr1_inf + (xr1 - xr1_inf) .* exp( -dt ./ tau_xr1 );
-xs = xs_inf + (xs - xs_inf) .* exp( -dt ./ tau_xs );
-f = f_inf + (f - f_inf) .* exp( -dt ./ tau_f );
-f2 = f2_inf + (f2 - f2_inf) .* exp( -dt ./ tau_f2 );
+% If dummy information was provided for invtau and Sinf (on first timestep,
+% this is not available), just populate them with the current values
+if isempty(Sinf_old)
+    Sinf_old = Sinf;
+end
+if isempty(invtau_old)
+    invtau_old = invtau;
+end
 
-%%% Repack all state variables back into the state matrix
-S = [m, h, j, s, xr1, xs, f, f2];
+% Create a matrix "A" that stores the approximations of the linear
+% coefficients (a in the above) for each variable at the half step
+%  a(n+1/2) = 3/2 a(n) - 1/2 a(n-1),    with   a = diag( -1/tau )
+% So here, each column of a corresponds to a different variable, and each
+% row to another node.
+%%% ONLY USED (NONZERO) FOR GATING VARIABLES
+A = -3/2 * invtau + 1/2 * invtau_old;
+
+% Do the same for "B" which is the remainder (here just the constant terms)
+%  b(n+1/2) = 3/2 b(n) - 1/2 b(n-1),    with   b = diag( Sinf / tau )
+B(:,gating) = 3/2 * (Sinf .* invtau) - 1/2 * (Sinf_old .* invtau_old);
+B(:,~gating) = 3/2 * S(:,~gating) - 1/2 * S_old(:,~gating);
+
+%%% Update gating variables using a second order exponential integration:
+%%%  g_new = g_old + dt * ( exp( dt a ) - 1 ) / ( dt a ) * ( a g_old +  b )  - update for gating variables
+%%%  S_new = S_old + b                                                       - update for non-gating variables
+S(:,gating) = S(:,gating) + dt * ( exp( dt * A ) - 1 ) ./ ( dt * A ) .* ( A .* S(:,gating) + B(:,gating) );
+S(:,~gating) = S(:,~gating) + dt * B(:,~gating);
+
 
 end
 

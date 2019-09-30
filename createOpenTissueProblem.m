@@ -50,7 +50,7 @@ stim_sites1(nodeX <= stim_width) = true;
 %%% Specify the cell model to use at all sites
 
 % List cell models that will be used here
-cell_models = {'TT3epi'};
+cell_models = {'TT3endo'};
 % Assign models to cells (by number)
 model_assignments = zeros(size(nodeX));
 model_assignments(nodeX < 1) = 1;

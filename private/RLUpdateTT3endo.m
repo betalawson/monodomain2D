@@ -1,4 +1,4 @@
-function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = RLUpdateTT3endo(V, S, dt, cell_type)
+function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = RLUpdateTT3endo(V, S, dt, I_stim)
 % This function performs a Rush Larsen timestep of the specified length for
 % the reduced Ten-Tusscher 2006 model for ventricular myocytes. The
 % implementation is according to the online source code, except with the
@@ -114,18 +114,6 @@ tau_f2 = 600 * exp( -(V+27).^2 / 170 ) + 7.75 ./ ( 1 + exp( (25-V)/10 ) ) + 16 .
 
 
 
-%%% Update gating variables using their steady state values and rate
-%%% constants (exponential integration as per Rush Larsen)
-m = m_inf + (m - m_inf) .* exp( -dt ./ tau_m );
-h = h_inf + (h - h_inf) .* exp( -dt ./ tau_h );
-j = j_inf + (j - j_inf) .* exp( -dt ./ tau_j );
-s = s_inf + (s - s_inf) .* exp( -dt ./ tau_s );
-xr1 = xr1_inf + (xr1 - xr1_inf) .* exp( -dt ./ tau_xr1 );
-xs = xs_inf + (xs - xs_inf) .* exp( -dt ./ tau_xs );
-f = f_inf + (f - f_inf) .* exp( -dt ./ tau_f );
-f2 = f2_inf + (f2 - f2_inf) .* exp( -dt ./ tau_f2 );
-
-
 %%% Calculate strengths of all currents for the current (V,S) state (post gating updates)
 
 %%% Na+ currents
@@ -163,6 +151,18 @@ I_NaCa = k_NaCa * ( expFVonRTgamma_minus_one .* expFVonRT .* Na_i .* Na_i .* Na_
 
 %%% Total ion transfer in/out of cell membrane
 I_ion = I_Na + I_bNa + I_CaL + I_pCa + I_bCa + I_to + I_Kr + I_Ks + I_K1 + I_pK + I_NaK + I_NaCa;
+
+
+%%% Update gating variables using their steady state values and rate
+%%% constants (exponential integration as per Rush Larsen)
+m = m_inf + (m - m_inf) .* exp( -dt ./ tau_m );
+h = h_inf + (h - h_inf) .* exp( -dt ./ tau_h );
+j = j_inf + (j - j_inf) .* exp( -dt ./ tau_j );
+s = s_inf + (s - s_inf) .* exp( -dt ./ tau_s );
+xr1 = xr1_inf + (xr1 - xr1_inf) .* exp( -dt ./ tau_xr1 );
+xs = xs_inf + (xs - xs_inf) .* exp( -dt ./ tau_xs );
+f = f_inf + (f - f_inf) .* exp( -dt ./ tau_f );
+f2 = f2_inf + (f2 - f2_inf) .* exp( -dt ./ tau_f2 );
 
 
 %%% Repack all state variables back into the state matrix

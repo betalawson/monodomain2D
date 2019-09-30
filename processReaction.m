@@ -1,4 +1,4 @@
-function [I_ion, S] = processReaction(V, S, dt, I_stim, cell_models, model_assignments, mesh, parallel)
+function [I_ion, S, Sinf, invtau] = processReaction(V, S, S_old, Sinf_old, invtau_old, dt, I_stim, I_stim_old, cell_models, model_assignments, mesh, second_order)
 % This function applies Rush-Larsen integration to process a timestep of
 % length dt, according to the cell model specified in input variable
 % 'model'. The outputs are the new state variables, and the vector of total
@@ -19,56 +19,51 @@ for k = 1:length(cell_models)
     % Store current model as a variable (just to remove a warning)
     this_model = cell_models{k};
     
-    % Perform a Rush-Larsen update using this model for these nodes
-    % (assuming some nodes are marked with this model)
+    % Only process if there are some nodes actually using this model
     if sum(batch) > 0
         
-        if ~parallel % If not using parallel, process all at once
-            try
-                [I_ion(batch), S(batch,:)] = feval(['RLUpdate',this_model], V(batch), S(batch,:), dt, I_stim(batch));
-            catch
-                error('Processing reaction term failed for model %s.\nConfirm file %s.m exists, and verify it has no errors \n', cell_models{k}, ['RLUpdate',cell_models{k}]);
-            end
-            
-        else  % Otherwise, split up the work onto multiple cores
-            
-            % Read out number of cores
-            Ncores = feature('numcores');
-            
-            % Initialise job variables to remove a warning
-            node_jobs = cell(Ncores,1);
-            V_jobs = cell(Ncores,1);
-            S_jobs = cell(Ncores,1);
-            I_stim_jobs = cell(Ncores,1);
-            
-            % Divide workload into this many pieces
-            process_cells = find(batch);
-            Njobs = length(process_cells);
-            for m = 1:Ncores
-                node_jobs{m} = process_cells(m:Ncores:Njobs);
-                V_jobs{m} = V(node_jobs{m});
-                S_jobs{m} = S(node_jobs{m},:);
-                I_stim_jobs{m} = I_stim(node_jobs{m});
-            end
-            
-            % Perform jobs on each individual processor
-            parfor m = 1:Ncores
-                try
-                    [I_results{m}, S_results{m}] = feval(['RLUpdate',this_model], V_jobs{m}, S_jobs{m}, dt, I_stim_jobs{m});
-                catch
-                    error('Processing reaction term failed for model %s.\nConfirm file %s.m exists, and verify it has no errors \n', this_model, ['RLUpdate',cell_models{k}]);
+        try 
+            % Perform the timestepping update for these nodes. Call a
+            % different function depending on whether using second order
+            % timestepping or not
+            if second_order
+                
+                % If this is the first step (old information not present),
+                % don't try to read out individual nodes from it. 
+                % Otherwise, do.
+                if isempty(Sinf_old)  
+                    [I_ion(batch), S_batch, Sinf_batch, invtau_batch] = feval(['SecondOrderUpdate',this_model], V(batch), S(batch,:), S_old(batch,:), [], [], dt, I_stim(batch), I_stim_old(batch,:));
+                else
+                    [I_ion(batch), S_batch, Sinf_batch, invtau_batch] = feval(['SecondOrderUpdate',this_model], V(batch), S(batch,:), S_old(batch,:), Sinf_old(batch,:), invtau_old(batch,:), dt, I_stim(batch), I_stim_old(batch,:));
                 end
+                
+            else
+                [I_ion(batch), S_batch] = feval(['RLUpdate',this_model], V(batch), S(batch,:), dt, I_stim(batch));
+            end
+                
+            % Store the batch outputs (performed this way so that cell
+            % models with different numbers of state variables are
+            % compatible
+            S(batch,1:size(S_batch,2)) = S_batch;
+            
+            % Also update Sinf and invtau values for use in second order
+            % timestepping
+            if second_order
+                Sinf(batch,1:size(Sinf_batch,2)) = Sinf_batch;
+                invtau(batch,1:size(invtau_batch,2)) = invtau_batch;
             end
             
-            % Recollect the results
-            for m = 1:Ncores
-                I_ion(node_jobs{m}) = I_results{m};
-                S(node_jobs{m},:) = S_results{m};
+        catch 
+            % Give a more meaningful error to user if the above failed
+            if second_order
+                func_prefix = 'SecondOrderUpdate';
+            else
+                func_prefix = 'RLUpdate';
             end
-            
+            error('Processing reaction term failed for model %s.\nConfirm file %s.m exists, and verify it has no errors \n', cell_models{k}, [func_prefix,cell_models{k}]);
+        
         end
     end
-    
 end
 
 end

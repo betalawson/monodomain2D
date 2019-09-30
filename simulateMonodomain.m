@@ -26,18 +26,14 @@ stim_times2 = [352.5];                    % Vector of times to stimulate sites m
 
 % Timestepping and solution methods
 t_end = 2000;                             % Simulation time (ms)
-dt = 0.1;                                 % Timestep (ms)
-reac_per_diffuse = 1;                     % Number of reaction steps to perform before each diffusive update
-timestepping = 'implicit';                % Timestepping for diffusive updates: set to 'implicit' or 'crank-nicholson'
-nonlocal_timederiv = 0;                   % Specifies whether or not to nonlocally integrate the time derivative term
-nonlocal_react = 0;                       % Specifies whether or not to nonlocally integrate the reaction term
+dt = 0.01;                                % Timestep (ms)
 solve_exact = 0;                          % Require exact solves (direct methods) for the linear systems that result from the time and space discretisations
-react_parallel = 0;                       % Make use of multiple cores in processing of the reaction terms
+second_order = 1;                         % Uses second order timestepping. Threatens stability, but provides better accuracy for sufficiently low timestep
 
 % Plotting
-visualise = 1;                            % Flag for whether to visualise or not
-save_anim = 1;                            % Flag for whether or not to save an animation (filename same as problem name, CAREFUL not to overwite!)
-plot_interval = 2.5;                      % Time interval for plotting (ms)
+visualise = 0;                            % Flag for whether to visualise or not
+save_anim = 0;                            % Flag for whether or not to save an animation (filename same as problem name, CAREFUL not to overwite!)
+plot_interval = 0.5;                      % Time interval for plotting (ms)
 
 
 
@@ -53,7 +49,7 @@ alpha = lambda / (lambda + 1) / chi / Cm;
 [K, M, mesh] = encodeProblem(problem.occ_map, problem.D_tensor, problem.Vfrac, problem.grid, alpha);
 
 % Finish preparing the numerical method in terms of these matrices
-[A_new, A_old, A_J] = prepareNumerics(K, M, dt, timestepping, nonlocal_timederiv, nonlocal_react);
+[A_new, A_old, A_J] = prepareNumerics(K, M, dt, second_order);
 
 % Read out the list of active nodes from mesh file for notational
 % cleanliness
@@ -91,6 +87,17 @@ end
 % Initialise problem
 [V, S] = initialiseProblem(cell_models, model_assignments, active);
 
+% The old value for the state variables is also set to the current value
+% for the first step. Also, the information that comes from the cell model
+% (gating variable rate constants and steady states) is initialised as
+% blank to show there is no old information for these
+S_old = S;
+Sinf = [];
+invtau = [];
+I_stim_old = zeros(N,1);
+J_old = [];
+
+
 % Loop over time integrations
 t = 0;
 while t < t_end
@@ -113,20 +120,25 @@ while t < t_end
     
     % Process reaction update - uses current voltage values and current
     % state variable values, S. Only processes active sites
-    [I_ion, S] = processReaction(V, S, dt, I_stim, cell_models, model_assignments, mesh, react_parallel);
+    [I_ion, S_new, Sinf, invtau] = processReaction(V, S, S_old, Sinf, invtau, dt, I_stim, I_stim_old, cell_models, model_assignments, mesh, second_order);
+
     
     % Calculate the total 'current density'
     J = (1/Cm) * ( I_ion(active) + I_stim(active) );
     
     
     %%% PROCESS UPDATE
-    V_active = takeTimestep(V(active), J, A_new, A_old, A_J, solve_exact);
+    V_active = takeTimestep(V(active), J, J_old, A_new, A_old, A_J, solve_exact, second_order);
     V(active) = V_active;
     
-    
+    % Now update the stored current and old values for different variables
+    S_old = S;  
+    S = S_new;
+    I_stim_old = I_stim;
+    J_old = J;
     
     % Check plot frequency, plot if hit
-    if visualise && ( t - floor(t / plot_interval) * plot_interval <= dt*reac_per_diffuse )
+    if visualise && ( t - floor(t / plot_interval) * plot_interval <= dt )
         
         % Visualise the current state
         visualiseState( V, problem.Nx, problem.Ny, problem.occ_map, t );
