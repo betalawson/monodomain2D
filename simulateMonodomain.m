@@ -22,18 +22,21 @@ Cm = 1;                                   % Tissue capacitance per unit area (uF
 stim_dur = 1;                             % Stimulus duration (ms)
 stim_amp = 52;                            % Amplitude of stimulus per unit area (uA/cm²)
 stim_times1 = [20];                       % Vector of times to stimulate sites marked as a primary stimulus (ms)
-stim_times2 = [352.5];                    % Vector of times to stimulate sites marked as a secondary stimulus (ms)
+stim_times2 = [720];                    % Vector of times to stimulate sites marked as a secondary stimulus (ms)
 
 % Timestepping and solution methods
-t_end = 2000;                             % Simulation time (ms)
-dt = 0.01;                                % Timestep (ms)
-solve_exact = 0;                          % Require exact solves (direct methods) for the linear systems that result from the time and space discretisations
+t_end = 1000;                             % Simulation time (ms)
+dt = 0.05;                                % Timestep (ms)
+solve_exact = 0;                          % If true, requires exact solves (direct methods) for the linear system solves involved in taking timesteps
 second_order = 1;                         % Uses second order timestepping. Threatens stability, but provides better accuracy for sufficiently low timestep
+lumping_factor = 0;                       % Specifies the amount of mass-lumping to use, in which the mass matrix is relaxed towards a diagonal matrix
+                                          % 0 - no lumping, mass matrix comes from integration of a linear interpolant over control volume
+                                          % 1 - full lumping, mass matrix is diagonal, by taking row sums of each row of the original mass matrix
 
 % Plotting
-visualise = 0;                            % Flag for whether to visualise or not
+visualise = 1;                            % Flag for whether to visualise or not
 save_anim = 0;                            % Flag for whether or not to save an animation (filename same as problem name, CAREFUL not to overwite!)
-plot_interval = 0.5;                      % Time interval for plotting (ms)
+plot_interval = 2;                        % Time interval for plotting (ms)
 
 
 
@@ -49,7 +52,7 @@ alpha = lambda / (lambda + 1) / chi / Cm;
 [K, M, mesh] = encodeProblem(problem.occ_map, problem.D_tensor, problem.Vfrac, problem.grid, alpha);
 
 % Finish preparing the numerical method in terms of these matrices
-[A_new, A_old, A_J] = prepareNumerics(K, M, dt, second_order);
+[A_new, A_old, A_J] = prepareNumerics(K, M, dt, second_order, lumping_factor);
 
 % Read out the list of active nodes from mesh file for notational
 % cleanliness
@@ -147,11 +150,12 @@ while t < t_end
         if save_anim
             frame = getframe(gcf);
             writeVideo(vid_obj, frame);
-            % Otherwise, draw on screen so user can watch in real time
+            
+        % Otherwise, draw on screen so user can watch in real time
         else
             drawnow;
+            
         end
-        
     end
     
 end

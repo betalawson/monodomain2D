@@ -24,7 +24,7 @@ Ca_i = 0.00007;       % Intracellular Ca2+ concentration (fixed in reduced model
 g_Na = 14.838;        % Maximum conductance of I_Na (nS/pF)
 g_to = 0.294;         % Maximum conductance of I_to (nS/pF)
 g_Kr = 0.101;         % Maximum conductance of I_Kr (nS/pF)
-g_Ks = 0.06425;   % Maximum conductance of I_Ks (nS/pF)
+g_Ks = 0.06425;       % Maximum conductance of I_Ks (nS/pF)
 g_K1 = 5.405;         % Maximum conductance of I_K1 (nS/pF)
 g_CaL = 0.2786;       % Maximum conductance of I_CaL (cm^3 ?F^-1 s^-1)        
 k_NaK = 2.724;        % Maximum I_NaK (pA/pF)
@@ -46,7 +46,6 @@ K_mCa = 1.38;         % Half-saturation constant for I_NaCa - Ca2+ conc. (mM)
 K_mNa_NaCa = 87.5;    % Half-saturation constant for I_NaCa - Na+ conc. (mM)
 k_sat = 0.1;          % Saturation factor for I_NaCa
 alpha = 2.5;          % Enhancement factor for outward I_NaCa
-
 
 % Calculate useful basic quantities
 RTonF = R * T / F;
@@ -111,7 +110,6 @@ f_inf = 1 ./ ( 1 + exp( (V+20)/7 ) );
 tau_f = 1102.5 * exp( -( (V + 27)/15).^2 ) + 200 ./ ( 1 + exp( (13 - V) / 10 ) ) + 180 ./ ( 1 + exp( (V+30)/10 ) ) + 20;
 f2_inf = 0.67 ./ (1 + exp( (V + 35)/7 ) ) + 0.33;
 tau_f2 = 600 * exp( -(V+27).^2 / 170 ) + 7.75 ./ ( 1 + exp( (25-V)/10 ) ) + 16 ./ ( 1 + exp( (V+30)/10 ) );
-
 
 
 %%% Calculate strengths of all currents for the current (V,S) state (post gating updates)

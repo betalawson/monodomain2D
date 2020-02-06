@@ -3,19 +3,6 @@ function [K, M, mesh] = encodeProblem(occ_map, D_tensor, Vfrac, grid, alpha)
 % the input information regarding the mesh (including what sites are
 % occupied, and the diffusivities and volume fractions)
 
-% Specify whether to approximate a nodal volume fraction or to incorporate
-% the element-associated volume fractions into the mass matrix
-volume_weighted_mass_matrix = 1;
-
-% Specify here a flag that controls how volume fraction averages are
-% calculated. Only used when nodal averages are required (if the above
-% setting is turned off)
-%     0 - do not include occlusions, only available space contributes to calculated values of volume fraction
-%     1 - include internal occlusions, but disclude the no-flux boundaries from calculations
-%     2 - include all occlusions, including no-flux boundary barriers, in calculations
-include_occlusions = 0;
-
-
 
 %%% LOTS OF SETUP
 
@@ -91,7 +78,7 @@ active_nodes = find(active);
 i_v = []; j_v = []; val_v = [];
 
 
-% Each piecewise bilinear interpolation contributes a mass matrix stencil 
+% Each piecewise bilinear interpolation contributes a mass matrix stencil
 % of form:
 %       [   0      3/64    1/64  ]
 %       [   0      9/64    3/64  ]
@@ -100,101 +87,51 @@ i_v = []; j_v = []; val_v = [];
 % of this form will be weighted by the volume fraction, otherwise they are
 % weighted by ~occ (which simply denotes whether there is a contribution or
 % not)
-if volume_weighted_mass_matrix
-    
-    % Centre node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes];
-    val_v = [val_v; 9/64 * (Vfrac_ext(eloc_dl(active_nodes)) + Vfrac_ext(eloc_ul(active_nodes)) + Vfrac_ext(eloc_dr(active_nodes)) + Vfrac_ext(eloc_ur(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Right node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes+1];
-    val_v = [val_v; 3/64 * (Vfrac_ext(eloc_dr(active_nodes)) + Vfrac_ext(eloc_ur(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Left node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes-1];
-    val_v = [val_v; 3/64 * (Vfrac_ext(eloc_dl(active_nodes)) + Vfrac_ext(eloc_ul(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Up node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes+(Nx+1)];
-    val_v = [val_v; 3/64 * (Vfrac_ext(eloc_ul(active_nodes)) + Vfrac_ext(eloc_ur(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Down node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes-(Nx+1)];
-    val_v = [val_v; 3/64 * (Vfrac_ext(eloc_dl(active_nodes)) + Vfrac_ext(eloc_dr(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Up-right node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes+1+(Nx+1)];
-    val_v = [val_v; 1/64 * Vfrac_ext(eloc_ur(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Up-left node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes-1+(Nx+1)];
-    val_v = [val_v; 1/64 * Vfrac_ext(eloc_ul(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Down-right node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes+1-(Nx+1)];
-    val_v = [val_v; 1/64 * Vfrac_ext(eloc_dr(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Down-left node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes-1-(Nx+1)];
-    val_v = [val_v; 1/64 * Vfrac_ext(eloc_dl(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
-    
-else
-    
-    % Centre node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes];
-    val_v = [val_v; 9/64 * (~occ_v_ext(eloc_dl(active_nodes)) + ~occ_v_ext(eloc_ul(active_nodes)) + ~occ_v_ext(eloc_dr(active_nodes)) + ~occ_v_ext(eloc_ur(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Right node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes+1];
-    val_v = [val_v; 3/64 * (~occ_v_ext(eloc_dr(active_nodes)) + ~occ_v_ext(eloc_ur(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Left node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes-1];
-    val_v = [val_v; 3/64 * (~occ_v_ext(eloc_dl(active_nodes)) + ~occ_v_ext(eloc_ul(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Up node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes+(Nx+1)];
-    val_v = [val_v; 3/64 * (~occ_v_ext(eloc_ul(active_nodes)) + ~occ_v_ext(eloc_ur(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Down node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes-(Nx+1)];
-    val_v = [val_v; 3/64 * (~occ_v_ext(eloc_dl(active_nodes)) + ~occ_v_ext(eloc_dr(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Up-right node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes+1+(Nx+1)];
-    val_v = [val_v; 1/64 * ~occ_v_ext(eloc_ur(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Up-left node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes-1+(Nx+1)];
-    val_v = [val_v; 1/64 * ~occ_v_ext(eloc_ul(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Down-right node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes+1-(Nx+1)];
-    val_v = [val_v; 1/64 * ~occ_v_ext(eloc_dr(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
-    
-    % Down-left node
-    i_v = [i_v; active_nodes];
-    j_v = [j_v; active_nodes-1-(Nx+1)];
-    val_v = [val_v; 1/64 * ~occ_v_ext(eloc_dl(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
-    
-end
+
+% Centre node
+i_v = [i_v; active_nodes];
+j_v = [j_v; active_nodes];
+val_v = [val_v; 9/64 * (Vfrac_ext(eloc_dl(active_nodes)) + Vfrac_ext(eloc_ul(active_nodes)) + Vfrac_ext(eloc_dr(active_nodes)) + Vfrac_ext(eloc_ur(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
+
+% Right node
+i_v = [i_v; active_nodes];
+j_v = [j_v; active_nodes+1];
+val_v = [val_v; 3/64 * (Vfrac_ext(eloc_dr(active_nodes)) + Vfrac_ext(eloc_ur(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
+
+% Left node
+i_v = [i_v; active_nodes];
+j_v = [j_v; active_nodes-1];
+val_v = [val_v; 3/64 * (Vfrac_ext(eloc_dl(active_nodes)) + Vfrac_ext(eloc_ul(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
+
+% Up node
+i_v = [i_v; active_nodes];
+j_v = [j_v; active_nodes+(Nx+1)];
+val_v = [val_v; 3/64 * (Vfrac_ext(eloc_ul(active_nodes)) + Vfrac_ext(eloc_ur(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
+
+% Down node
+i_v = [i_v; active_nodes];
+j_v = [j_v; active_nodes-(Nx+1)];
+val_v = [val_v; 3/64 * (Vfrac_ext(eloc_dl(active_nodes)) + Vfrac_ext(eloc_dr(active_nodes)) ) * dx * dy ./ CV_vols(active_nodes) ];
+
+% Up-right node
+i_v = [i_v; active_nodes];
+j_v = [j_v; active_nodes+1+(Nx+1)];
+val_v = [val_v; 1/64 * Vfrac_ext(eloc_ur(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
+
+% Up-left node
+i_v = [i_v; active_nodes];
+j_v = [j_v; active_nodes-1+(Nx+1)];
+val_v = [val_v; 1/64 * Vfrac_ext(eloc_ul(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
+
+% Down-right node
+i_v = [i_v; active_nodes];
+j_v = [j_v; active_nodes+1-(Nx+1)];
+val_v = [val_v; 1/64 * Vfrac_ext(eloc_dr(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
+
+% Down-left node
+i_v = [i_v; active_nodes];
+j_v = [j_v; active_nodes-1-(Nx+1)];
+val_v = [val_v; 1/64 * Vfrac_ext(eloc_dl(active_nodes)) * dx * dy ./ CV_vols(active_nodes) ];
 
 % Before constructing the sparse matrix, remove all terms from the vectors
 % that have a zero value (some of these will reference locations outside
@@ -234,109 +171,43 @@ i_v = []; j_v = []; val_v = [];
 
 
 
-% Nodal volume fractions will or will not be included in the stiffness
-% matrix depending on the specified setting
-if volume_weighted_mass_matrix
-    
-    % Node's dependence on itself
-    i_v = [i_v, nlist]; j_v = [j_v, nlist];
-    val_v = [val_v; ( dx/2 * J_W(eloc_ur,1) + dy/2 * J_S(eloc_ur,1) + dx/2 * J_E(eloc_ul,2) - dy/2 * J_S(eloc_ul,2) - dx/2 * J_W(eloc_dr,3) + dy/2 * J_N(eloc_dr,3) - dx/2 * J_E(eloc_dl,4) - dy/2 * J_N(eloc_dl,4) ) ./ CV_vols ];
-    
-    % Node's dependence on North-East node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)+1];
-    val_v = [val_v; ( dx/2 * J_W(eloc_ur,4) + dy/2 * J_S(eloc_ur,4) ) ./ CV_vols];
-    
-    % Node's dependence on North-West node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)-1];
-    val_v = [val_v; ( dx/2 * J_E(eloc_ul,3) - dy/2 * J_S(eloc_ul,3) ) ./ CV_vols];
-    
-    % Node's dependence on South-East node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)+1];
-    val_v = [val_v; (- dx/2 * J_W(eloc_dr,2) + dy/2 * J_N(eloc_dr,2) ) ./ CV_vols];
-    
-    % Node's dependence on South-West node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)-1];
-    val_v = [val_v; (- dx/2 * J_E(eloc_dl,1) - dy/2 * J_N(eloc_dl,1) ) ./ CV_vols];
-    
-    % Node's dependence on East node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist+1];
-    val_v = [val_v; (dx/2 * J_W(eloc_ur,2) + dy/2 * J_S(eloc_ur,2) - dx/2 * J_W(eloc_dr,4) + dy/2 * J_N(eloc_dr,4) ) ./ CV_vols];
-    
-    % Node's dependence on West node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist-1];
-    val_v = [val_v; (dx/2 * J_E(eloc_ul,1) - dy/2 * J_S(eloc_ul,1) - dx/2 * J_E(eloc_dl,3) - dy/2 * J_N(eloc_dl,3) ) ./ CV_vols];
-    
-    % Node's dependence on North node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)];
-    val_v = [val_v; (dx/2 * J_W(eloc_ur,3) + dy/2 * J_S(eloc_ur,3) + dx/2 * J_E(eloc_ul,4) - dy/2 * J_S(eloc_ul,4) ) ./ CV_vols];
-    
-    % Node's dependence on South node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)];
-    val_v = [val_v; (- dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(eloc_dl,2) - dy/2 * J_N(eloc_dl,2) ) ./ CV_vols];
-    
-else
-    
-    % Set the volume fractions as non-contributing in the case of
-    % the outer boundaries by marking boundaries as nan in a separate matrix,
-    % and giving them a volume fraction of zero
-    switch include_occlusions
-        case 0   % Disclude all occlusions
-            include = logical(Vfrac_ext);
-        case 1   % Only disclude boundaries
-            include = [zeros(1,Nx+2); [zeros(Ny,1), ones(size(Vfrac)), zeros(Ny,1)]; zeros(1,Nx+2) ];
-        case 2   % Include everything
-            include = ones(size(Vfrac_ext));
-    end
-    
-    % Now use these values to calculate the average volume fraction associated
-    % with each node
-    Vfrac_nodes = ( ...
-        include(1:Ny+1, 1:Nx+1) .* Vfrac_ext(1:Ny+1, 1:Nx+1) ...
-        + include(2:Ny+2, 1:Nx+1) .* Vfrac_ext(2:Ny+2, 1:Nx+1) ...
-        + include(1:Ny+1, 2:Nx+2) .* Vfrac_ext(1:Ny+1, 2:Nx+2) ...
-        + include(2:Ny+2, 2:Nx+2) .* Vfrac_ext(2:Ny+2, 2:Nx+2) ...
-        ) ./ ( include(1:Ny+1, 1:Nx+1) + include(2:Ny+2, 1:Nx+1) + include(1:Ny+1, 2:Nx+2) + include(2:Ny+2, 2:Nx+2) );
-    
-    % Convert this into a vector for use in below calculations
-    Vfrac_nodes = Vfrac_nodes'; Vfrac_nodes = Vfrac_nodes(:);
-    
-    % Node's dependence on itself
-    i_v = [i_v, nlist]; j_v = [j_v, nlist];
-    val_v = [val_v; ( dx/2 * J_W(eloc_ur,1) + dy/2 * J_S(eloc_ur,1) + dx/2 * J_E(eloc_ul,2) - dy/2 * J_S(eloc_ul,2) - dx/2 * J_W(eloc_dr,3) + dy/2 * J_N(eloc_dr,3) - dx/2 * J_E(eloc_dl,4) - dy/2 * J_N(eloc_dl,4) ) ./ (CV_vols .* Vfrac_nodes) ];
-    
-    % Node's dependence on North-East node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)+1];
-    val_v = [val_v; ( dx/2 * J_W(eloc_ur,4) + dy/2 * J_S(eloc_ur,4) ) ./ (CV_vols .* Vfrac_nodes)];
-    
-    % Node's dependence on North-West node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)-1];
-    val_v = [val_v; ( dx/2 * J_E(eloc_ul,3) - dy/2 * J_S(eloc_ul,3) ) ./ (CV_vols .* Vfrac_nodes)];
-    
-    % Node's dependence on South-East node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)+1];
-    val_v = [val_v; (- dx/2 * J_W(eloc_dr,2) + dy/2 * J_N(eloc_dr,2) ) ./ (CV_vols .* Vfrac_nodes)];
-    
-    % Node's dependence on South-West node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)-1];
-    val_v = [val_v; (- dx/2 * J_E(eloc_dl,1) - dy/2 * J_N(eloc_dl,1) ) ./ (CV_vols .* Vfrac_nodes)];
-    
-    % Node's dependence on East node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist+1];
-    val_v = [val_v; (dx/2 * J_W(eloc_ur,2) + dy/2 * J_S(eloc_ur,2) - dx/2 * J_W(eloc_dr,4) + dy/2 * J_N(eloc_dr,4) ) ./ (CV_vols .* Vfrac_nodes)];
-    
-    % Node's dependence on West node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist-1];
-    val_v = [val_v; (dx/2 * J_E(eloc_ul,1) - dy/2 * J_S(eloc_ul,1) - dx/2 * J_E(eloc_dl,3) - dy/2 * J_N(eloc_dl,3) ) ./ (CV_vols .* Vfrac_nodes)];
-    
-    % Node's dependence on North node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)];
-    val_v = [val_v; (dx/2 * J_W(eloc_ur,3) + dy/2 * J_S(eloc_ur,3) + dx/2 * J_E(eloc_ul,4) - dy/2 * J_S(eloc_ul,4) ) ./ (CV_vols .* Vfrac_nodes)];
-    
-    % Node's dependence on South node
-    i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)];
-    val_v = [val_v; (- dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(eloc_dl,2) - dy/2 * J_N(eloc_dl,2) ) ./ (CV_vols .* Vfrac_nodes)];
-    
-end
+% Node's dependence on itself
+i_v = [i_v, nlist]; j_v = [j_v, nlist];
+val_v = [val_v; ( dx/2 * J_W(eloc_ur,1) + dy/2 * J_S(eloc_ur,1) + dx/2 * J_E(eloc_ul,2) - dy/2 * J_S(eloc_ul,2) - dx/2 * J_W(eloc_dr,3) + dy/2 * J_N(eloc_dr,3) - dx/2 * J_E(eloc_dl,4) - dy/2 * J_N(eloc_dl,4) ) ./ CV_vols ];
+
+% Node's dependence on North-East node
+i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)+1];
+val_v = [val_v; ( dx/2 * J_W(eloc_ur,4) + dy/2 * J_S(eloc_ur,4) ) ./ CV_vols];
+
+% Node's dependence on North-West node
+i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)-1];
+val_v = [val_v; ( dx/2 * J_E(eloc_ul,3) - dy/2 * J_S(eloc_ul,3) ) ./ CV_vols];
+
+% Node's dependence on South-East node
+i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)+1];
+val_v = [val_v; (- dx/2 * J_W(eloc_dr,2) + dy/2 * J_N(eloc_dr,2) ) ./ CV_vols];
+
+% Node's dependence on South-West node
+i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)-1];
+val_v = [val_v; (- dx/2 * J_E(eloc_dl,1) - dy/2 * J_N(eloc_dl,1) ) ./ CV_vols];
+
+% Node's dependence on East node
+i_v = [i_v, nlist]; j_v = [j_v, nlist+1];
+val_v = [val_v; (dx/2 * J_W(eloc_ur,2) + dy/2 * J_S(eloc_ur,2) - dx/2 * J_W(eloc_dr,4) + dy/2 * J_N(eloc_dr,4) ) ./ CV_vols];
+
+% Node's dependence on West node
+i_v = [i_v, nlist]; j_v = [j_v, nlist-1];
+val_v = [val_v; (dx/2 * J_E(eloc_ul,1) - dy/2 * J_S(eloc_ul,1) - dx/2 * J_E(eloc_dl,3) - dy/2 * J_N(eloc_dl,3) ) ./ CV_vols];
+
+% Node's dependence on North node
+i_v = [i_v, nlist]; j_v = [j_v, nlist+(Nx+3)];
+val_v = [val_v; (dx/2 * J_W(eloc_ur,3) + dy/2 * J_S(eloc_ur,3) + dx/2 * J_E(eloc_ul,4) - dy/2 * J_S(eloc_ul,4) ) ./ CV_vols];
+
+% Node's dependence on South node
+i_v = [i_v, nlist]; j_v = [j_v, nlist-(Nx+3)];
+val_v = [val_v; (- dx/2 * J_W(eloc_dr,1) + dy/2 * J_N(eloc_dr,1) - dx/2 * J_E(eloc_dl,2) - dy/2 * J_N(eloc_dl,2) ) ./ CV_vols];
+
+
 
 % Before creating the matrix, set any values that appear to be zero (but
 % are not due to rounding error) to explicitly zero so they are not stored

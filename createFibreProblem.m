@@ -1,4 +1,4 @@
-function createOpenTissueProblem(filename, mesh_separation)
+function createFibreProblem(filename, mesh_separation)
 % This function creates tissue of a single consistent property, with no
 % occlusions. Stimulus is placed at one end
 
@@ -6,26 +6,32 @@ function createOpenTissueProblem(filename, mesh_separation)
 D = [ 3, 0; 0, 1 ];    % Fibre-biased conduction
 
 % Define the physical size of the problem (in centimetres)
-Lx = 10;
-Ly = 0.2;
+Lx = 2;
+Ly = (mesh_separation / 10000) * 3;    % Always 3 elements wide
 
+% Define the grid separation
+if nargin < 2
+    mesh_separation = 100;           % (in microns)
+end
 
 % Stimulus regions are the left and right edges of the domain (left
 % primary, right secondary)
-stim_width = 0.05;            % Width of stimulus regions
+stim_width = 0.1;            % Width of stimulus regions
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Separations are the given mesh separation, but converted to centimetres
-dx = mesh_separation / 10000;
-dy = mesh_separation / 10000;
 
-% Determine the number of elements to use
-Nx = Lx / dx;
-Ny = Ly / dy;
+% Convert the grid separation to centimetres for consistent units
+mesh_separation = mesh_separation / 10000;
+
+% Determine how many elements to use based on the given grid separation and
+% problem domain
+Nx = Lx / mesh_separation;
+Ny = Ly / mesh_separation;
 
 % Determine x and y co-ordinates of all element centres
-[X,Y] = meshgrid( linspace(0,Lx-dx,Nx) + dx/2,   linspace(0,Ly-dy,Ny) + dy/2 );
+
+[X,Y] = meshgrid( linspace(0,Lx-mesh_separation,Nx) + mesh_separation/2,   linspace(0,Ly-mesh_separation,Ny) + mesh_separation/2 );
 
 % Initialise occupancy map
 occ_map = false(size(Y));
@@ -54,7 +60,10 @@ stim_sites1(nodeX <= stim_width) = true;
 % List cell models that will be used here
 cell_models = {'TT3epi'};
 % Assign models to cells (by number)
-model_assignments = ones(size(nodeX));
+model_assignments = zeros(size(nodeX));
+model_assignments(nodeX < 1) = 1;
+model_assignments(nodeX >= 1) = 1;
+
 
 
 %%% Process and save all data
@@ -75,8 +84,8 @@ problem.D_tensor.D_xx = D_xx;
 problem.D_tensor.D_xy = D_xy;
 problem.D_tensor.D_yy = D_yy;
 problem.Vfrac = Vfrac;
-problem.grid.dx = dx;
-problem.grid.dy = dy;
+problem.grid.dx = mesh_separation;
+problem.grid.dy = mesh_separation;
 problem.grid.Lx = Lx;
 problem.grid.Ly = Ly;
 problem.Nx = Nx;

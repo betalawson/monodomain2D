@@ -1,19 +1,38 @@
-function CVs = gridConvergenceTester(input1, input2, operator_split)
+function [mesh_separations, CVs, CVs_reactiononly, CVs_localonly] = gridConvergenceTester
 
-grid_counts = [10, 20, 30, 40, 50, 75, 100, 125, 150, 200, 500, 1000];
+% Set up the different gridsizes for which the propagation speed should be
+% calculated
+mesh_separations = [1000, 500];
 
-CVs = zeros(length(grid_counts),1);
-for k = 1:length(grid_counts)
+% Initialise the vector of conduction velocities
+CVs = zeros(length(mesh_separations),1);
+CVs_reactiononly = zeros(length(mesh_separations),1);
+CVs_localonly = zeros(length(mesh_separations),1);
+
+% Loop over each different mesh separation
+for k = 1:length(mesh_separations)
     
-    createBlankTestProblem('test',grid_counts(k));
+    % Create the problem, pause for safety, and then load it
+    createOpenTissueProblem('test',mesh_separations(k));
     pause(2);
     load('test.mat','problem');
-    if operator_split
-        CVs(k) = calculateCV_OperatorSplit(problem, 'planar', input1, input2);
-    else
-        CVs(k) = calculateCV(problem, 'planar', input1, input2);
-    end
-    fprintf('Completed run with %d gridpoints\n', grid_counts(k));
+    
+    % Run the wavespeed calculation code
+    CVs(k) = calculateCV(problem);
+    
+    % Move into separate version of code that only nonlocally integrates
+    % the reaction term, run that code, then return folder
+    cd('ReactionOnly');
+    CVs_reactiononly(k) = calculateCV(problem);
+    cd('..');
+    
+    % Move into separate version of code that only nonlocally integrates
+    % the reaction term, run that code, then return folder
+    cd('LocalOnly');
+    CVs_localonly(k) = calculateCV(problem);
+    cd('..');
+    
+    fprintf('Completed run with mesh separation %d microns\n', mesh_separations(k));
     
 end
 

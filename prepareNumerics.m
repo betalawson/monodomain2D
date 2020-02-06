@@ -1,4 +1,4 @@
-function [A_new, A_old, A_J] = prepareNumerics(K, M, dt, second_order)
+function [A_new, A_old, A_J] = prepareNumerics(K, M, dt, second_order, lumping_factor)
 % This matrix takes an input stiffness and mass matrix as well as the 
 % desired timestep (assumed fixed) and creates instead a problem expressed 
 % as:
@@ -12,6 +12,9 @@ function [A_new, A_old, A_J] = prepareNumerics(K, M, dt, second_order)
 % update. This code is used simply to avoid re-calculation of unchanging 
 % matrices.
 
+% Apply the requested amount of mass-lumping to create a new modified mass
+% matrix
+M = ( 1 - lumping_factor ) * M + lumping_factor * diag( sum(M, 2) );
 
 if second_order  % Crank-Nicholson for the diffusive portion
     A_new = M - dt/2 * K;

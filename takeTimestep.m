@@ -33,7 +33,10 @@ end
 if exact
     V = A_new \ b_vec;
 else
-    V = conjugateGradient(A_new, b_vec, V_old, 1e-9);
+    [V, flag, relres] = bicgstab(A_new, b_vec, 1e-9, 20, speye(size(A_new)), speye(size(A_new)), V_old);
+    if flag ~= 0
+        warning('Biconjugate gradient failed to converge to requested tolerance in specified number of maximum iterations. Residual was %g',relres);
+    end
 end
 
 

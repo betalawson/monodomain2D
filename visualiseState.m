@@ -18,7 +18,7 @@ load('extra_colormaps.mat','plasma');
 Vclr = [ [0.2, 0.2, 0.2]; plasma]; 
 
 % Visualise the remainder
-imagesc(0:0.01:4, 0:0.01:0.05,flipud(Ve));
+imagesc(flipud(Ve));
 colormap(Vclr);
 whitebg([0.2 0.2 0.2]);
 caxis([-90 40]);
