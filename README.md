@@ -17,3 +17,6 @@ The implementation of the TT3 model provided should be used as a template for th
 ### References
 Perego, M. & Veneziani, A. (2009). An efficient generalization of the Rush-Larsen method for solving elecro-physiology membrane equations. *Elec. Trans. Num. Anal.* 35: 234-256.  
 ten Tusscher, K. H. & Panfilov, A. V. (2006). Cell model for efficient simulation of wave propagation in human ventricular tissue under normal and pathological conditions. *Phys. Med. Biol.* 51: 6141-6156.
+
+### Acknowledgements
+This code was created with the support of the ARC Centre of Excellence for Mathematical and Statistical Frontiers   ([acems.org.au]http://www.acems.org.au)
