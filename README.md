@@ -19,4 +19,4 @@ Perego, M. & Veneziani, A. (2009). An efficient generalization of the Rush-Larse
 ten Tusscher, K. H. & Panfilov, A. V. (2006). Cell model for efficient simulation of wave propagation in human ventricular tissue under normal and pathological conditions. *Phys. Med. Biol.* 51: 6141-6156.
 
 ### Acknowledgements
-This code was created with the support of the ARC Centre of Excellence for Mathematical and Statistical Frontiers   ([acems.org.au]http://www.acems.org.au)
+This code was created with the support of the ARC Centre of Excellence for Mathematical and Statistical Frontiers   [acems.org.au](http://www.acems.org.au)
