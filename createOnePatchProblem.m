@@ -1,60 +1,47 @@
-function createOpenTissueProblem(filename, mesh_separation)
-% This function creates tissue of a single consistent property, with no
-% occlusions. Stimulus is placed at one end
-
-% Define the diffusion tensor
-D = [ 3, 0; 0, 1 ];    % Fibre-biased conduction
-
-% Define the physical size of the problem (in centimetres)
-Lx = 2;
-Ly = 2;
-
-
-% Stimulus regions are the left and right edges of the domain (left
-% primary, right secondary)
-stim_width = 0.05;            % Width of stimulus regions
+function createOnePatchProblem(filename)
+% This function creates a single element with 4 nodes at its corners, that
+% do not interact diffusively. This is used for single cell problems.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Separations are the given mesh separation, but converted to centimetres
-dx = mesh_separation / 10000;
-dy = mesh_separation / 10000;
+% Grid separation is set automatically (irrelevant)
+mesh_separation = 100;           % (in microns)
 
-% Determine the number of elements to use
-Nx = Lx / dx;
-Ny = Ly / dy;
+% Define the diffusion tensor
+D = [ 0, 0; 0, 0 ];    % Zero diffusion for a 0D problem
 
-% Determine x and y co-ordinates of all element centres
-[X,Y] = meshgrid( linspace(0,Lx-dx,Nx) + dx/2,   linspace(0,Ly-dy,Ny) + dy/2 );
+% Convert the grid separation to centimetres for consistent units
+mesh_separation = mesh_separation / 10000;
+
+% Use one element
+Nx = 1;
+Ny = 1;
+Lx = Nx * mesh_separation;
+Ly = Ny * mesh_separation;
 
 % Initialise occupancy map
-occ_map = false(size(Y));
+occ_map = false;
 
 
 %%% Define volumes of each element
 Vfrac = double(~occ_map);      % Volume fraction of one in all non-occupied elements (no elements are partially occupied)
 
-%%% Create stimulus sites
 
-% Nodes will be placed at element boundaries (vertex-centred finite volume)
-% So first create node positions
+%%% Define node locations (element corners)
 [nodeX, nodeY] = meshgrid( linspace(0,Lx,Nx+1), linspace(0,Ly,Ny+1) );
 
-% Initialise stimulus matrix to zeroes
-stim_sites1 = false(size(nodeY));
-stim_sites2 = false(size(nodeY));
-
-% Set edges to be stimulus sites as requested
-stim_sites1(nodeX <= stim_width) = true;
-
+%%% All sites are stimulus sites
+stim_sites1 = true(size(nodeY));
+stim_sites2 = true(size(nodeY));
 
 
 %%% Specify the cell model to use at all sites
 
 % List cell models that will be used here
-cell_models = {'TT06epi'};
-% Assign models to cells (by number)
+cell_models = {'CRN'};
+% Assign models to cells (all nodes are model 1)
 model_assignments = ones(size(nodeX));
+
 
 
 %%% Process and save all data
@@ -75,8 +62,8 @@ problem.D_tensor.D_xx = D_xx;
 problem.D_tensor.D_xy = D_xy;
 problem.D_tensor.D_yy = D_yy;
 problem.Vfrac = Vfrac;
-problem.grid.dx = dx;
-problem.grid.dy = dy;
+problem.grid.dx = mesh_separation;
+problem.grid.dy = mesh_separation;
 problem.grid.Lx = Lx;
 problem.grid.Ly = Ly;
 problem.Nx = Nx;

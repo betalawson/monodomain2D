@@ -1,4 +1,4 @@
-function simulateMonodomain(problem)
+function simulateMonodomainOS(problem)
 % This function simulates the monodomain equation on a mesh where the
 % volume fraction (fraction of accessible material, as opposed to say
 % collagenous occlusions due to fibrosis) and conductivity tensor are
@@ -26,13 +26,13 @@ stim_times2 = [720];                    % Vector of times to stimulate sites mar
 
 % Timestepping and solution methods
 t_end = 1000;                             % Simulation time (ms)
-dt = 0.025;                                % Timestep (ms)
+dt = 0.05;                                % Timestep (ms)
 solve_exact = 0;                          % If true, requires exact solves (direct methods) for the linear system solves involved in taking timesteps
-preconditioning = 1;                      % If solve_exact = 0, specifies whether to use basic preconditioning (ILU(0)) or not
 second_order = 1;                         % Uses second order timestepping. Threatens stability, but provides better accuracy for sufficiently low timestep
 lumping_factor = 0;                       % Specifies the amount of mass-lumping to use, in which the mass matrix is relaxed towards a diagonal matrix
                                           % 0 - no lumping, mass matrix comes from integration of a linear interpolant over control volume
                                           % 1 - full lumping, mass matrix is diagonal, by taking row sums of each row of the original mass matrix
+reac_per_diffuse = 1;                     % Number of reaction steps to use for every diffusion step (dt is length of reaction step)
 
 % Plotting
 visualise = 1;                            % Flag for whether to visualise or not
@@ -53,7 +53,7 @@ alpha = lambda / (lambda + 1) / chi / Cm;
 [K, M, mesh] = encodeProblem(problem.occ_map, problem.D_tensor, problem.Vfrac, problem.grid, alpha);
 
 % Finish preparing the numerical method in terms of these matrices
-[A_new, A_old, A_J] = prepareNumerics(K, M, dt, second_order, lumping_factor);
+[A_new, A_old, ~] = prepareNumerics(K, M, dt, second_order, lumping_factor);
 
 % Read out the list of active nodes from mesh file for notational
 % cleanliness
@@ -99,11 +99,11 @@ end
 % Initialise problem
 [V, S] = initialiseProblem(cell_models, model_assignments, active);
 
-% The information that comes from the cell model (gating variable rate 
-% constants and steady states, as well as rates of change of non-gating
-% variables) are initialised as blank to indicate there is currently no
-% old information for these
-b_old = [];
+% The old value for the state variables is also set to the current value
+% for the first step. Also, the information that comes from the cell model
+% (gating variable rate constants and steady states) is initialised as
+% blank to show there is no old information for these
+S_old = S;
 Sinf = [];
 invtau = [];
 I_stim_old = zeros(N,1);
@@ -114,37 +114,69 @@ J_old = [];
 t = 0;
 while t < t_end
     
-    % Increment time
-    t = t + dt;
     
+    %%% REACTION STEP   
+    for k = 1:reac_per_diffuse
     
-    %%% REACTION STEP HANDLING
+        % Increment time
+        t = t + dt;
+       
+        % Stimulate if this is a stimulus time
+        I_stim = zeros(N,1);
+        if any( (t - stim_times1) <= stim_dur & (t - stim_times1) >= 0 )
+            I_stim(stim_sites1) = -stim_amp;
+        end
     
-    % Stimulate if this is a stimulus time
-    I_stim = zeros(N,1);
-    if any( (t - stim_times1) <= stim_dur & (t - stim_times1) >= 0 )
-        I_stim(stim_sites1) = -stim_amp;
+        if any( (t - stim_times2) <= stim_dur & (t - stim_times2) >= 0 )
+            I_stim(stim_sites2) = -stim_amp;
+        end
+    
+        % Process reaction update - uses current voltage values and current
+        % state variable values, S. Only processes active sites
+        [I_ion, S_new, Sinf, invtau, b_old] = processReaction(V, S, Sinf, invtau, b_old, dt, I_stim, I_stim_old, cell_models, model_assignments, mesh, second_order, extra_params);
+
+        % Calculate the total 'current density'
+        J = (1/Cm) * ( I_ion(active) + I_stim(active) );
+        
+        if second_order
+            if isempty(J_old)  % First order on first step when past information unavailable
+                J_old = J;
+            end
+            V(active) = V(active) - dt * (3/2 * J - 1/2 * J_old);
+        else
+            V(active) = V(active) - dt * J;
+        end
+    
+        % Now update the stored current and old values for different variables
+        S_old = S;  
+        S = S_new;
+        I_stim_old = I_stim;
+        J_old = J;
+    
     end
     
-    if any( (t - stim_times2) <= stim_dur & (t - stim_times2) >= 0 )
-        I_stim(stim_sites2) = -stim_amp;
+    %%% DIFFUSION STEP
+    
+     % Solve the linear system, processing only active sites
+    if solve_exact
+        V_active = A_new \ ( A_old * V(active) );
+    else
+        
+        % Solve the linear system using biconjugate gradient (stabilised),
+        % with ILU(0) preconditioning if requested
+        if preconditioning
+            [L,U] = ilu(A_new);
+            [V_active, flag, relres] = bicgstab(A_new, A_old * V(active), 1e-9, 20, L, U, V(active));
+        else
+            [V_active, flag, relres] = bicgstab(A_new, A_old * V(active), 1e-9, 20, speye(size(A_new)), speye(size(A_new)), V(active));
+        end
+        % Output warning if biconjugate gradient did not converge to tolerance
+        if flag ~= 0
+            warning('Biconjugate gradient failed to converge to requested tolerance in specified number of maximum iterations. Residual was %g',relres);
+        end
     end
-    
-    % Process reaction update - uses current voltage values and current
-    % state variable values, S. Only processes active sites
-    [I_ion, S_new, Sinf, invtau, b_old] = processReaction(V, S, Sinf, invtau, b_old, dt, I_stim, I_stim_old, cell_models, model_assignments, mesh, second_order, extra_params);
-    
-    % Calculate the total 'current density'
-    J = (1/Cm) * ( I_ion(active) + I_stim(active) );
-    
-    %%% PROCESS UPDATE
-    V_active = takeTimestep(V(active), J, J_old, A_new, A_old, A_J, solve_exact, preconditioning, second_order);
+    % Update the active sites with the new values found
     V(active) = V_active;
-    
-    % Now update the stored current and old values for different variables
-    S = S_new;
-    I_stim_old = I_stim;
-    J_old = J;
     
     % Check plot frequency, plot if hit
     if visualise && ( t - floor(t / plot_interval) * plot_interval <= dt )

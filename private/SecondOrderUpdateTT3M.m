@@ -1,4 +1,4 @@
-function [I_ion, S, Sinf, invtau, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = SecondOrderUpdateTT3M(V, S, S_old, Sinf_old, invtau_old, dt, I_stim, I_stim_old)
+function [I_ion, S, Sinf, invtau, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = SecondOrderUpdateTT3M(V, S, S_old, Sinf_old, invtau_old, dt, I_stim, I_stim_old, params)
 % This function performs a Rush Larsen timestep of the specified length for
 % the reduced Ten-Tusscher 2006 model for ventricular myocytes. The
 % implementation is according to the online source code, except with the

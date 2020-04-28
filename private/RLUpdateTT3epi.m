@@ -1,4 +1,4 @@
-function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = RLUpdateTT3epi(V, S, dt, I_stim)
+function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = RLUpdateTT3epi(V, S, dt, I_stim, params)
 % This function performs a Rush Larsen timestep of the specified length for
 % the reduced Ten-Tusscher 2006 model for ventricular myocytes. The
 % implementation is according to the online source code, except with the

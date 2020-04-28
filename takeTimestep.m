@@ -1,4 +1,4 @@
-function  V = takeTimestep(V_old, J, J_old, A_new, A_old, A_J, exact, second_order)
+function  V = takeTimestep(V_old, J, J_old, A_new, A_old, A_J, exact, preconditioning, second_order)
 % This function takes as inputs the current 'state' (voltage and current
 % vectors) and matrices that define the numerical representation of the
 % problem such that:
@@ -33,10 +33,20 @@ end
 if exact
     V = A_new \ b_vec;
 else
-    [V, flag, relres] = bicgstab(A_new, b_vec, 1e-9, 20, speye(size(A_new)), speye(size(A_new)), V_old);
+    
+    % Take a timestep using the biconjugate gradient method, with basic
+    % preconditioning if requested
+    if preconditioning
+        [L,U] = ilu(A_new);
+        [V, flag, relres] = bicgstab(A_new, b_vec, 1e-9, 20, L, U, V_old);
+    else
+        [V, flag, relres] = bicgstab(A_new, b_vec, 1e-9, 20, speye(size(A_new)), speye(size(A_new)), V_old);
+    end
+    
     if flag ~= 0
         warning('Biconjugate gradient failed to converge to requested tolerance in specified number of maximum iterations. Residual was %g',relres);
     end
+    
 end
 
 

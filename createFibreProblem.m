@@ -5,9 +5,8 @@ function createFibreProblem(filename, mesh_separation)
 % Define the diffusion tensor
 D = [ 3, 0; 0, 1 ];    % Fibre-biased conduction
 
-% Define the physical size of the problem (in centimetres)
-Lx = 2;
-Ly = (mesh_separation / 10000) * 3;    % Always 3 elements wide
+% Define the physical length of the fibre (in centimetres)
+Lx = 5;
 
 % Define the grid separation
 if nargin < 2
@@ -26,8 +25,9 @@ mesh_separation = mesh_separation / 10000;
 
 % Determine how many elements to use based on the given grid separation and
 % problem domain
-Nx = Lx / mesh_separation;
-Ny = Ly / mesh_separation;
+Nx = ceil(Lx / mesh_separation);
+Ny = 3;     % Always use 3 elements as width of fibre
+Ly = Ny * mesh_separation;
 
 % Determine x and y co-ordinates of all element centres
 
@@ -58,7 +58,7 @@ stim_sites1(nodeX <= stim_width) = true;
 %%% Specify the cell model to use at all sites
 
 % List cell models that will be used here
-cell_models = {'TT3epi'};
+cell_models = {'TT06epi'};
 % Assign models to cells (by number)
 model_assignments = zeros(size(nodeX));
 model_assignments(nodeX < 1) = 1;

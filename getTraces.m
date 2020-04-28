@@ -1,4 +1,4 @@
-function simulateMonodomain(problem)
+function [t_trace, V_traces, S_traces] = getTraces(problem)
 % This function simulates the monodomain equation on a mesh where the
 % volume fraction (fraction of accessible material, as opposed to say
 % collagenous occlusions due to fibrosis) and conductivity tensor are
@@ -21,21 +21,21 @@ Cm = 1;                                   % Tissue capacitance per unit area (uF
 % Stimulus settings
 stim_dur = 1;                             % Stimulus duration (ms)
 stim_amp = 52;                            % Amplitude of stimulus per unit area (uA/cm²)
-stim_times1 = [5];                       % Vector of times to stimulate sites marked as a primary stimulus (ms)
-stim_times2 = [720];                    % Vector of times to stimulate sites marked as a secondary stimulus (ms)
+stim_times1 = [20];                       % Vector of times to stimulate sites marked as a primary stimulus (ms)
+stim_times2 = [];                         % Vector of times to stimulate sites marked as a secondary stimulus (ms)
 
 % Timestepping and solution methods
-t_end = 1000;                             % Simulation time (ms)
-dt = 0.025;                                % Timestep (ms)
+t_end = 500;                             % Simulation time (ms)
+dt = 0.05;                                % Timestep (ms)
 solve_exact = 0;                          % If true, requires exact solves (direct methods) for the linear system solves involved in taking timesteps
 preconditioning = 1;                      % If solve_exact = 0, specifies whether to use basic preconditioning (ILU(0)) or not
-second_order = 1;                         % Uses second order timestepping. Threatens stability, but provides better accuracy for sufficiently low timestep
+second_order = 0;                         % Uses second order timestepping. Threatens stability, but provides better accuracy for sufficiently low timestep
 lumping_factor = 0;                       % Specifies the amount of mass-lumping to use, in which the mass matrix is relaxed towards a diagonal matrix
                                           % 0 - no lumping, mass matrix comes from integration of a linear interpolant over control volume
                                           % 1 - full lumping, mass matrix is diagonal, by taking row sums of each row of the original mass matrix
 
 % Plotting
-visualise = 1;                            % Flag for whether to visualise or not
+visualise = 0;                            % Flag for whether to visualise or not
 save_anim = 0;                            % Flag for whether or not to save an animation (filename same as problem name, CAREFUL not to overwite!)
 plot_interval = 2;                        % Time interval for plotting (ms)
 
@@ -82,6 +82,28 @@ nodeY = problem.nodeY;
 nodeX = nodeX'; nodeX = nodeX(:);
 nodeY = nodeY'; nodeY = nodeY(:);
 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%% Define trace nodes here %%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Create an empty list of trace nodes
+trace_nodes = [];
+
+% Find an approximately central site to use to take the trace
+[Ny, Nx] = size(problem.occ_map)
+centre_node = (ceil( (Ny+1) /2) - 1) * (Nx + 1) + ceil( (Nx+1)/2 )
+
+if active(centre_node)
+    trace_nodes = [trace_nodes; centre_node];   % Append this location
+else
+    warning('Trace node is not an active node!');
+end
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
 % If no extra parameters were provided in the problem structure, give them
 % a dummy value
 if isfield(problem,'extra_params')
@@ -109,8 +131,13 @@ invtau = [];
 I_stim_old = zeros(N,1);
 J_old = [];
 
+%%% Initialise traces
+t_trace = [0];
+V_traces = V(trace_nodes);
+S_traces = S(trace_nodes,:)';
 
-% Loop over time integrations
+
+%%% Loop over time integrations
 t = 0;
 while t < t_end
     
@@ -133,9 +160,11 @@ while t < t_end
     % Process reaction update - uses current voltage values and current
     % state variable values, S. Only processes active sites
     [I_ion, S_new, Sinf, invtau, b_old] = processReaction(V, S, Sinf, invtau, b_old, dt, I_stim, I_stim_old, cell_models, model_assignments, mesh, second_order, extra_params);
+
     
     % Calculate the total 'current density'
     J = (1/Cm) * ( I_ion(active) + I_stim(active) );
+    
     
     %%% PROCESS UPDATE
     V_active = takeTimestep(V(active), J, J_old, A_new, A_old, A_J, solve_exact, preconditioning, second_order);
@@ -145,6 +174,11 @@ while t < t_end
     S = S_new;
     I_stim_old = I_stim;
     J_old = J;
+    
+    %%% CALCULATE TRACE(S)
+    t_trace = [t_trace, t];
+    V_traces = [V_traces, V(trace_nodes)];
+    S_traces = [S_traces, S(trace_nodes,:)'];
     
     % Check plot frequency, plot if hit
     if visualise && ( t - floor(t / plot_interval) * plot_interval <= dt )
