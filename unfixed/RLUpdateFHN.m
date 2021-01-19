@@ -14,16 +14,16 @@ function [I_ion, S] = RLUpdateFHN(V, S, dt, I_stim, params)
 
 % Define voltage scaling
 V_rest = -85;
-V_max = 40;
-V_thresh = -67.5;
+V_max = 15;
+V_thresh = -40;
 
 % Define parameters
-c1 = 1;
 epsilon = 0.005;
 beta = 0.5;
 gamma = 1;
 delta = 0;
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% Read out variables from state variable matrix
 v = S(:,1);
@@ -35,7 +35,7 @@ u_thresh = (V_thresh - V_rest) / (V_max - V_rest);
 
 
 %%% Change in u, scaled back into the corresponding amount of V, is current
-I_ion = -( c1 * (u_thresh - u) .* (u - 1) .* u - v) * (V_max - V_rest);
+I_ion = -( (u_thresh - u) .* (u - 1) .* u - v) * (V_max - V_rest);
 
 
 %%% Update the state variable (Rush-Larsen holds V fixed, so this is a

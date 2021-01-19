@@ -1,4 +1,4 @@
-function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa, I_up, I_rel] = RLUpdateTT04endo(V, S, dt, I_stim)
+function [I_ion, S, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa, I_up, I_rel] = RLUpdateTT04endo(V, S, dt, I_stim, params)
 % This function performs a Rush Larsen timestep of the specified length for
 % the Ten-Tusscher 2004 model for ventricular myocytes. The "axial current"
 % has not been included for now.
@@ -56,6 +56,8 @@ buf_c = 0.15;         % Cytoplasmic Ca2+ buffer concentration (mM)
 K_bufc = 0.001;       % Half saturation constant for cytoplasmic buffer - Ca2+ conc. (mM)
 buf_sr = 10;          % Sarcoplasmic reticulum Ca2+ buffer concentration (mM)
 K_bufsr = 0.3;        % Half saturation constant for sarcoplasmic reticulum buffer - Ca2+ conc. (mM)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 % Calculate useful basic quantities

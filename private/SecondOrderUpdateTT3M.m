@@ -1,4 +1,4 @@
-function [I_ion, S, Sinf, invtau, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = SecondOrderUpdateTT3M(V, S, S_old, Sinf_old, invtau_old, dt, I_stim, I_stim_old, params)
+function [I_ion, S, Sinf, invtau, b, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = SecondOrderUpdateTT3M(V, S, Sinf_old, invtau_old, b_old, dt, I_stim, I_stim_old, params)
 % This function performs a Rush Larsen timestep of the specified length for
 % the reduced Ten-Tusscher 2006 model for ventricular myocytes. The
 % implementation is according to the online source code, except with the
@@ -53,6 +53,16 @@ K_mCa = 1.38;         % Half-saturation constant for I_NaCa - Ca2+ conc. (mM)
 K_mNa_NaCa = 87.5;    % Half-saturation constant for I_NaCa - Na+ conc. (mM)
 k_sat = 0.1;          % Saturation factor for I_NaCa
 alpha = 2.5;          % Enhancement factor for outward I_NaCa
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Define which state variables are gating variables
+gating = logical([1, 1, 1, 1,  1,  1,  1, 1]);
+%                 m  h  j  s  xr1  xs  f  f2
+
+% This also means that the rate of change info for non-gating variables is
+% blank
+b = [];
 
 
 % Calculate useful basic quantities
@@ -180,18 +190,18 @@ end
 % row to another node.
 %%% ONLY USED (NONZERO) FOR GATING VARIABLES
 A = -3/2 * invtau + 1/2 * invtau_old;
+% Ensure no estimated time constants go negative - estimate below zero
+% is bad so ensure in this scenario it is calculated using only the current
+% estimate (destroys 2nd order to rescue dire situations)
+A(A > 0) = -invtau(A > 0);
 
 % Do the same for "B" which is the remainder (here just the constant terms)
 %  b(n+1/2) = 3/2 b(n) - 1/2 b(n-1),    with   b = diag( Sinf / tau )
 B(:,gating) = 3/2 * (Sinf .* invtau) - 1/2 * (Sinf_old .* invtau_old);
-B(:,~gating) = 3/2 * S(:,~gating) - 1/2 * S_old(:,~gating);
 
 %%% Update gating variables using a second order exponential integration:
 %%%  g_new = g_old + dt * ( exp( dt a ) - 1 ) / ( dt a ) * ( a g_old +  b )  - update for gating variables
 %%%  S_new = S_old + b                                                       - update for non-gating variables
 S(:,gating) = S(:,gating) + dt * ( exp( dt * A ) - 1 ) ./ ( dt * A ) .* ( A .* S(:,gating) + B(:,gating) );
-S(:,~gating) = S(:,~gating) + dt * B(:,~gating);
-
 
 end
-

@@ -3,11 +3,6 @@ function [I_ion, S, Sinf, invtau, b, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK,
 % the Ten-Tusscher 2004 model for ventricular myocytes. The "axial current"
 % has not been included for now.
 
-% Define which state variables are gating variables
-gating = logical([ 0,   0,   0,    0,    1, 1, 1, 1, 1, 1,   1,  1,  1, 1,  1,  1]);
-%                 Na_i K_i  Ca_i  Ca_sr  m  h  j  r  s  xr1 xr2  xs  d  f  fCa  g
-
-
 % Define basic constants
 R = 8314.472;         % Gas constant (J K^-1 mol^-1 LOL NOT REALLY)
 F = 96485.3415;       % Faraday constant (C/mol  BUT CELLML SAYS MILLIMOLE)
@@ -60,6 +55,12 @@ buf_c = 0.15;         % Cytoplasmic Ca2+ buffer concentration (mM)
 K_bufc = 0.001;       % Half saturation constant for cytoplasmic buffer - Ca2+ conc. (mM)
 buf_sr = 10;          % Sarcoplasmic reticulum Ca2+ buffer concentration (mM)
 K_bufsr = 0.3;        % Half saturation constant for sarcoplasmic reticulum buffer - Ca2+ conc. (mM)
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Define which state variables are gating variables
+gating = logical([ 0,   0,   0,    0,    1, 1, 1, 1, 1, 1,   1,  1,  1, 1,  1,  1]);
+%                 Na_i K_i  Ca_i  Ca_sr  m  h  j  r  s  xr1 xr2  xs  d  f  fCa  g
 
 
 % Calculate useful basic quantities
@@ -140,11 +141,11 @@ tau_d = ( 0.25 + 1.4 ./ (1 + exp( -(35 + V)/13 ) ) ) .* ( 1.4 ./ (1 + exp( (V+5)
 f_inf = 1 ./ ( 1 + exp( (V+20)/7 ) );
 tau_f = 1125 * exp( -( (V + 27).^2 )/240 ) + 165 ./ ( 1 + exp( (25 - V) / 10 ) ) + 80;
 fCa_inf = ( 1 ./ ( 1 + ( Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i ) / (0.000325^8) ) +  0.1 ./ ( 1 + exp( (Ca_i - 0.0005) / 0.0001) )  +  0.2 ./ ( 1 + exp( (Ca_i - 0.00075) / 0.0008 ) ) + 0.23 ) / 1.46;
-tau_fCa = 2;
+tau_fCa = 2 * ones(size(V));
 
 % Calcium release gate
 g_inf = 1 ./ ( 1 + Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i / (0.00035^6) .* ( Ca_35em5 .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i .* Ca_i / (0.00035^10) + ~Ca_35em5 ) );
-tau_g = 2;
+tau_g = 2 * ones(size(V));
 
 
 % Store all of the inverse time constants and steady state values in one 
@@ -202,12 +203,15 @@ I_ion = I_Na + I_bNa + I_CaL + I_pCa + I_bCa + I_to + I_Kr + I_Ks + I_K1 + I_pK 
 
 
 %%% Updates to ion concentrations in terms of currents
-
 % Intracellular Na+
 b(:,1) = ( -( I_Na + I_bNa + 3 * I_NaK + 3 * I_NaCa ) / (Vol_c * F) * Cm );
+% Intracellular K+
 b(:,2) = ( - ( I_to + I_Kr + I_Ks - 2 * I_NaK + I_pK + I_stim ) / (Vol_c * F) * Cm );
+% Intracellular Ca2+
 b(:,3) = 1 ./ ( 1 + buf_c * K_bufc ./ ( ( Ca_i + K_bufc ).^2 ) ) .* ( - (I_CaL + I_bCa + I_pCa - 2 * I_NaCa ) / ( 2 * Vol_c * F ) * Cm + I_leak - I_up + I_rel );
+% SR Ca2+
 b(:,4) = 1 ./ ( 1 + buf_sr * K_bufsr ./ ( Ca_sr + K_bufsr ).^2 ) .* Vol_c / Vol_sr .* ( -I_leak + I_up - I_rel );
+
 
 % If dummy information was provided for invtau and Sinf (on first timestep,
 % this is not available), just populate them with the current values
@@ -230,9 +234,9 @@ end
 %%% ONLY USED (NONZERO) FOR GATING VARIABLES
 A = -3/2 * invtau + 1/2 * invtau_old;
 % Ensure no estimated time constants go negative - estimate below zero
-% corresponds to a rapidly decreasing value for invtau and so it is set to
-% a small positive value
-A(A > 0) = -1e-6;
+% is bad so ensure in this scenario it is calculated using only the current
+% estimate (destroys 2nd order to rescue dire situations)
+A(A > 0) = -invtau(A > 0);
 
 % Do the same for "B" which is the remainder (here just the constant terms)
 %  b(n+1/2) = 3/2 b(n) - 1/2 b(n-1),    with   b = diag( Sinf / tau )
@@ -250,9 +254,8 @@ S_new(:,~gating) = S_new(:,~gating) + dt * B(:,~gating);
 %%% below the steady state value and V > -60mV. So, in these cases, reset S
 %%% to the original value
 S_new( (V_m60 & S(:,15) < Sinf(:,11) ), 15) = S( (V_m60 & S(:,15) < Sinf(:,11) ), 15);
-S_new( (V_m60 & S(:,16) < Sinf(:,12) ), 15) = S( (V_m60 & S(:,16) < Sinf(:,12) ), 15);
+S_new( (V_m60 & S(:,16) < Sinf(:,12) ), 15) = S( (V_m60 & S(:,16) < Sinf(:,12) ), 16);
 
 S = S_new;
-
 
 end

@@ -21,15 +21,15 @@ Cm = 1;                                   % Tissue capacitance per unit area (uF
 % Stimulus settings
 stim_dur = 1;                             % Stimulus duration (ms)
 stim_amp = 52;                            % Amplitude of stimulus per unit area (uA/cm²)
-stim_times1 = [20];                       % Vector of times to stimulate sites marked as a primary stimulus (ms)
-stim_times2 = [];                         % Vector of times to stimulate sites marked as a secondary stimulus (ms)
+stim_times1 = [];                         % Vector of times to stimulate sites marked as a primary stimulus (ms)
+stim_times2 = [500];                      % Vector of times to stimulate sites marked as a secondary stimulus (ms)
 
 % Timestepping and solution methods
-t_end = 500;                             % Simulation time (ms)
+t_end = 1000;                             % Simulation time (ms)
 dt = 0.05;                                % Timestep (ms)
 solve_exact = 0;                          % If true, requires exact solves (direct methods) for the linear system solves involved in taking timesteps
 preconditioning = 1;                      % If solve_exact = 0, specifies whether to use basic preconditioning (ILU(0)) or not
-second_order = 0;                         % Uses second order timestepping. Threatens stability, but provides better accuracy for sufficiently low timestep
+second_order = 1;                         % Uses second order timestepping. Threatens stability, but provides better accuracy for sufficiently low timestep
 lumping_factor = 0;                       % Specifies the amount of mass-lumping to use, in which the mass matrix is relaxed towards a diagonal matrix
                                           % 0 - no lumping, mass matrix comes from integration of a linear interpolant over control volume
                                           % 1 - full lumping, mass matrix is diagonal, by taking row sums of each row of the original mass matrix
@@ -91,8 +91,8 @@ nodeY = nodeY'; nodeY = nodeY(:);
 trace_nodes = [];
 
 % Find an approximately central site to use to take the trace
-[Ny, Nx] = size(problem.occ_map)
-centre_node = (ceil( (Ny+1) /2) - 1) * (Nx + 1) + ceil( (Nx+1)/2 )
+[Ny, Nx] = size(problem.occ_map);
+centre_node = (ceil( (Ny+1) /2) - 1) * (Nx + 1) + ceil( (Nx+1)/2 );
 
 if active(centre_node)
     trace_nodes = [trace_nodes; centre_node];   % Append this location
@@ -121,10 +121,10 @@ end
 % Initialise problem
 [V, S] = initialiseProblem(cell_models, model_assignments, active);
 
-% The information that comes from the cell model (gating variable rate 
-% constants and steady states, as well as rates of change of non-gating
-% variables) are initialised as blank to indicate there is currently no
-% old information for these
+% The old value for the state variables is also set to the current value
+% for the first step. Also, the information that comes from the cell model
+% (gating variable rate constants and steady states) is initialised as
+% blank to show there is no old information for these
 b_old = [];
 Sinf = [];
 invtau = [];
@@ -134,7 +134,8 @@ J_old = [];
 %%% Initialise traces
 t_trace = [0];
 V_traces = V(trace_nodes);
-S_traces = S(trace_nodes,:)';
+S_traces = zeros(length(trace_nodes), size(S,2), 1);
+S_traces(:,:,1) = S(trace_nodes,:);
 
 
 %%% Loop over time integrations
@@ -170,7 +171,7 @@ while t < t_end
     V_active = takeTimestep(V(active), J, J_old, A_new, A_old, A_J, solve_exact, preconditioning, second_order);
     V(active) = V_active;
     
-    % Now update the stored current and old values for different variables
+    % Now update the stored current and old values for different variables 
     S = S_new;
     I_stim_old = I_stim;
     J_old = J;
@@ -178,7 +179,7 @@ while t < t_end
     %%% CALCULATE TRACE(S)
     t_trace = [t_trace, t];
     V_traces = [V_traces, V(trace_nodes)];
-    S_traces = [S_traces, S(trace_nodes,:)'];
+    S_traces = cat(3, S_traces, S(trace_nodes,:));
     
     % Check plot frequency, plot if hit
     if visualise && ( t - floor(t / plot_interval) * plot_interval <= dt )

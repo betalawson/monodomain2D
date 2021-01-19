@@ -60,14 +60,15 @@ for k = 1:length(cell_models)
                 b = NaN;
             end
             
-       catch 
+        catch
+            
             % Give a more meaningful error to user if the above failed
             if second_order
                 func_prefix = 'SecondOrderUpdate';
             else
                 func_prefix = 'RLUpdate';
             end
-            fprintf(' WARNING: Processing reaction term failed for model %s.\nConfirm file %s.m exists, and verify it has no errors. \n \n Retrying call to indicate nature of error \n\n', cell_models{k}, [func_prefix,cell_models{k}]);
+            fprintf('\n -------------- \n  FATAL ERROR: Processing reaction term failed for model %s.\n -------------- \n\nConfirm file %s.m exists, and verify it has no errors. \n \n Retrying call to indicate nature of error... \n\n', cell_models{k}, [func_prefix,cell_models{k}]);
         
             % Re-run model as called above so it outputs the error
             if second_order
@@ -79,7 +80,7 @@ for k = 1:length(cell_models)
             else
                 [I_ion(batch), S_batch] = feval(['RLUpdate',this_model], V(batch), S(batch,:), dt, I_stim(batch), extra_params);
             end
-            
+        
        end
     end
 end

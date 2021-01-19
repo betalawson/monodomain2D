@@ -38,7 +38,7 @@ stim_sites2 = true(size(nodeY));
 %%% Specify the cell model to use at all sites
 
 % List cell models that will be used here
-cell_models = {'CRN'};
+cell_models = {'TT3epi'};
 % Assign models to cells (all nodes are model 1)
 model_assignments = ones(size(nodeX));
 
@@ -81,4 +81,3 @@ problem.model_assignments = model_assignments;
 save([filename,'.mat'],'problem');
 
 end
-

@@ -5,10 +5,6 @@ function [I_ion, S, Sinf, invtau, b, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK,
 % one from the CellML version, which differs somewhat from the published
 % version.
 
-% Define which state variables are gating variables
-gating = logical([ 0,   0,   0,    0,     0,    1, 1, 1, 1, 1, 1,   1,  1,  1, 1, 1,  1,  1]);
-%                 Na_i K_i  Ca_i  Ca_ss  Ca_sr  m  h  j  r  s  xr1 xr2  xs  d  f  f2 fCa  Rb
-
 % Define basic constants
 R = 8314.472;         % Gas constant (J K^-1 mol^-1 LOL NOT REALLY)
 F = 96485.3415;       % Faraday constant (C/mol  BUT CELLML SAYS MILLIMOLE)
@@ -69,6 +65,12 @@ k_4 = 0.005;          % CICR-related constant 4
 EC = 1.5;             % Half saturation constant for k_casr - Ca2+ SR conc. (mM)
 k_casrmax = 2.5;      % Maximum value of k_sr
 k_casrmin = 1;        % Minimum value of k_sr
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Define which state variables are gating variables
+gating = logical([ 0,   0,   0,    0,     0,    1, 1, 1, 1, 1, 1,   1,  1,  1, 1, 1,  1,  1]);
+%                 Na_i K_i  Ca_i  Ca_ss  Ca_sr  m  h  j  r  s  xr1 xr2  xs  d  f  f2 fCa  Rb
 
 
 % Calculate useful basic quantities
@@ -215,23 +217,18 @@ I_xfer = k_xfer .* (Ca_ss - Ca_i);
 I_ion = I_Na + I_bNa + I_CaL + I_pCa + I_bCa + I_to + I_Kr + I_Ks + I_K1 + I_pK + I_NaK + I_NaCa;
 
 
-
 %%% Updates to ion concentrations in terms of currents
-
 % Intracellular Na+
 b(:,1) = ( - ( I_Na + I_bNa + 3 * I_NaK + 3 * I_NaCa ) / (Vol_c * F) * Cm );
-
 % Intracellular K+
-b(:,2) = K_i + dt * ( - ( I_to + I_Kr + I_Ks - 2 * I_NaK + I_pK + I_stim ) / (Vol_c * F) * Cm );
-
+b(:,2) = ( - ( I_to + I_Kr + I_Ks - 2 * I_NaK + I_pK + I_stim ) / (Vol_c * F) * Cm );
 % Intracellular Ca2+
-b(:,3) = Ca_i + dt ./ ( 1 + buf_c * K_bufc ./ ( ( Ca_i + K_bufc ).^2 ) ) .* ( - (I_bCa + I_pCa - 2 * I_NaCa ) / ( 2 * Vol_c * F ) * Cm + Vol_sr / Vol_c * (I_leak - I_up) + I_xfer );
-
+b(:,3) = 1 ./ ( 1 + buf_c * K_bufc ./ ( ( Ca_i + K_bufc ).^2 ) ) .* ( - (I_bCa + I_pCa - 2 * I_NaCa ) / ( 2 * Vol_c * F ) * Cm + Vol_sr / Vol_c * (I_leak - I_up) + I_xfer );
 % Subspace Ca2+
-b(:,4) = Ca_ss + dt ./ ( 1 + buf_ss * K_bufss ./ ( ( Ca_ss + K_bufss).^2 ) ) .* ( -I_CaL / (2 *  F) * Cm + Vol_sr * I_rel - Vol_c * I_xfer ) / Vol_ss;
-
+b(:,4) = 1 ./ ( 1 + buf_ss * K_bufss ./ ( ( Ca_ss + K_bufss).^2 ) ) .* ( -I_CaL / (2 *  F) * Cm + Vol_sr * I_rel - Vol_c * I_xfer ) / Vol_ss;
 % SR Ca2+
-b(:,5) = Ca_sr + dt ./ ( 1 + buf_sr * K_bufsr ./ ( Ca_sr + K_bufsr ).^2 ) .* ( -I_leak + I_up - I_rel );
+b(:,5) = 1 ./ ( 1 + buf_sr * K_bufsr ./ ( Ca_sr + K_bufsr ).^2 ) .* ( -I_leak + I_up - I_rel );
+
 
 % If dummy information was provided for invtau and Sinf (on first timestep,
 % this is not available), just populate them with the current values
@@ -254,9 +251,9 @@ end
 %%% ONLY USED (NONZERO) FOR GATING VARIABLES
 A = -3/2 * invtau + 1/2 * invtau_old;
 % Ensure no estimated time constants go negative - estimate below zero
-% corresponds to a rapidly decreasing value for invtau and so it is set to
-% a small positive value
-A(A > 0) = -1e-6;
+% is bad so ensure in this scenario it is calculated using only the current
+% estimate (destroys 2nd order to rescue dire situations)
+A(A > 0) = -invtau(A > 0);
 
 % Do the same for "B" which is the remainder (here just the constant terms)
 %  b(n+1/2) = 3/2 b(n) - 1/2 b(n-1),    with   b = diag( Sinf / tau )

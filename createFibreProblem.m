@@ -6,7 +6,7 @@ function createFibreProblem(filename, mesh_separation)
 D = [ 3, 0; 0, 1 ];    % Fibre-biased conduction
 
 % Define the physical length of the fibre (in centimetres)
-Lx = 5;
+Lx = 10;
 
 % Define the grid separation
 if nargin < 2
@@ -58,7 +58,7 @@ stim_sites1(nodeX <= stim_width) = true;
 %%% Specify the cell model to use at all sites
 
 % List cell models that will be used here
-cell_models = {'TT06epi'};
+cell_models = {'TT3epi'};
 % Assign models to cells (by number)
 model_assignments = zeros(size(nodeX));
 model_assignments(nodeX < 1) = 1;

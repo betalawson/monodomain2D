@@ -6,8 +6,8 @@ function createOpenTissueProblem(filename, mesh_separation)
 D = [ 3, 0; 0, 1 ];    % Fibre-biased conduction
 
 % Define the physical size of the problem (in centimetres)
-Lx = 2;
-Ly = 2;
+Lx = 10;
+Ly = 0.2;
 
 
 % Stimulus regions are the left and right edges of the domain (left
@@ -52,7 +52,7 @@ stim_sites1(nodeX <= stim_width) = true;
 %%% Specify the cell model to use at all sites
 
 % List cell models that will be used here
-cell_models = {'TT06epi'};
+cell_models = {'TT3epi'};
 % Assign models to cells (by number)
 model_assignments = ones(size(nodeX));
 

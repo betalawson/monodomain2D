@@ -67,6 +67,8 @@ EC = 1.5;             % Half saturation constant for k_casr - Ca2+ SR conc. (mM)
 k_casrmax = 2.5;      % Maximum value of k_sr
 k_casrmin = 1;        % Minimum value of k_sr
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 
 % Calculate useful basic quantities
 RTonF = R * T / F;

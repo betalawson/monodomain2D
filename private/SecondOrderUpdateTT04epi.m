@@ -1,12 +1,7 @@
 function [I_ion, S, Sinf, invtau, b, I_Na, I_CaL, I_Kr, I_Ks, I_to, I_K1, I_NaK, I_NaCa] = SecondOrderUpdateTT04epi(V, S, Sinf_old, invtau_old, b_old, dt, I_stim, I_stim_old, params)
-
 % This function performs a Rush Larsen timestep of the specified length for
 % the Ten-Tusscher 2004 model for ventricular myocytes. The "axial current"
 % has not been included for now.`
-
-% Define which state variables are gating variables
-gating = logical([ 0,   0,   0,    0,    1, 1, 1, 1, 1, 1,   1,  1,  1, 1,  1,  1]);
-%                 Na_i K_i  Ca_i  Ca_sr  m  h  j  r  s  xr1 xr2  xs  d  f  fCa  g
 
 
 % Define basic constants
@@ -62,6 +57,12 @@ K_bufc = 0.001;       % Half saturation constant for cytoplasmic buffer - Ca2+ c
 buf_sr = 10;          % Sarcoplasmic reticulum Ca2+ buffer concentration (mM)
 K_bufsr = 0.3;        % Half saturation constant for sarcoplasmic reticulum buffer - Ca2+ conc. (mM)
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Define which state variables are gating variables
+gating = logical([ 0,   0,   0,    0,    1, 1, 1, 1, 1, 1,   1,  1,  1, 1,  1,  1]);
+%                 Na_i K_i  Ca_i  Ca_sr  m  h  j  r  s  xr1 xr2  xs  d  f  fCa  g
+
 
 % Calculate useful basic quantities
 RTonF = R * T / F;
@@ -103,6 +104,7 @@ dV_Ca = V - E_Ca;
 % Create switch variables that select whether or not variables are above
 % certain threshold
 V_m40 = (V >= -40);
+V_m60 = (V >= -60);
 Ca_35em5 = (Ca_i >= 0.00035);
 
 %%% Calculate steady state values and rate constants for the gating variables
@@ -203,12 +205,15 @@ I_ion = I_Na + I_bNa + I_CaL + I_pCa + I_bCa + I_to + I_Kr + I_Ks + I_K1 + I_pK 
 
 
 %%% Updates to ion concentrations in terms of currents
-
 % Intracellular Na+
 b(:,1) = ( -( I_Na + I_bNa + 3 * I_NaK + 3 * I_NaCa ) / (Vol_c * F) * Cm );
+% Intracellular K+
 b(:,2) = ( - ( I_to + I_Kr + I_Ks - 2 * I_NaK + I_pK + I_stim ) / (Vol_c * F) * Cm );
+% Intracellular Ca2+
 b(:,3) = 1 ./ ( 1 + buf_c * K_bufc ./ ( ( Ca_i + K_bufc ).^2 ) ) .* ( - (I_CaL + I_bCa + I_pCa - 2 * I_NaCa ) / ( 2 * Vol_c * F ) * Cm + I_leak - I_up + I_rel );
+% SR Ca2+
 b(:,4) = 1 ./ ( 1 + buf_sr * K_bufsr ./ ( Ca_sr + K_bufsr ).^2 ) .* Vol_c / Vol_sr .* ( -I_leak + I_up - I_rel );
+
 
 % If dummy information was provided for invtau and Sinf (on first timestep,
 % this is not available), just populate them with the current values
@@ -231,9 +236,9 @@ end
 %%% ONLY USED (NONZERO) FOR GATING VARIABLES
 A = -3/2 * invtau + 1/2 * invtau_old;
 % Ensure no estimated time constants go negative - estimate below zero
-% corresponds to a rapidly decreasing value for invtau and so it is set to
-% a small positive value
-A(A > 0) = -1e-6;
+% is bad so ensure in this scenario it is calculated using only the current
+% estimate (destroys 2nd order to rescue dire situations)
+A(A > 0) = -invtau(A > 0);
 
 % Do the same for "B" which is the remainder (here just the constant terms)
 %  b(n+1/2) = 3/2 b(n) - 1/2 b(n-1),    with   b = diag( Sinf / tau )
@@ -250,8 +255,8 @@ S_new(:,~gating) = S_new(:,~gating) + dt * B(:,~gating);
 %%% OVERRIDE FOR TT04 WEIRDNESS - fCa and g do not update if their value is
 %%% below the steady state value and V > -60mV. So, in these cases, reset S
 %%% to the original value
-S_new( (Vm60 & S(:,15) < Sinf(:,11) ), 15) = S( (Vm60 & S(:,15) < Sinf(:,11) ), 15);
-S_new( (Vm60 & S(:,16) < Sinf(:,12) ), 15) = S( (Vm60 & S(:,16) < Sinf(:,12) ), 15);
+S_new( (V_m60 & S(:,15) < Sinf(:,11) ), 15) = S( (V_m60 & S(:,15) < Sinf(:,11) ), 15);
+S_new( (V_m60 & S(:,16) < Sinf(:,12) ), 15) = S( (V_m60 & S(:,16) < Sinf(:,12) ), 16);
 
 S = S_new;
 

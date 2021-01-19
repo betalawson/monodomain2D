@@ -34,6 +34,7 @@ tau_si = 30;            % Slow inward current
 % Other parameters
 k = 10;                 % Slow inward current activation slope
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%% Read out variables from state variable matrix
 v = S(:,1);

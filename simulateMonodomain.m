@@ -21,15 +21,15 @@ Cm = 1;                                   % Tissue capacitance per unit area (uF
 % Stimulus settings
 stim_dur = 1;                             % Stimulus duration (ms)
 stim_amp = 52;                            % Amplitude of stimulus per unit area (uA/cm²)
-stim_times1 = [5];                       % Vector of times to stimulate sites marked as a primary stimulus (ms)
+stim_times1 = [20];                       % Vector of times to stimulate sites marked as a primary stimulus (ms)
 stim_times2 = [720];                    % Vector of times to stimulate sites marked as a secondary stimulus (ms)
 
 % Timestepping and solution methods
 t_end = 1000;                             % Simulation time (ms)
-dt = 0.025;                                % Timestep (ms)
+dt = 0.05;                                % Timestep (ms)
 solve_exact = 0;                          % If true, requires exact solves (direct methods) for the linear system solves involved in taking timesteps
 preconditioning = 1;                      % If solve_exact = 0, specifies whether to use basic preconditioning (ILU(0)) or not
-second_order = 1;                         % Uses second order timestepping. Threatens stability, but provides better accuracy for sufficiently low timestep
+second_order = 0;                         % Uses second order timestepping. Threatens stability, but provides better accuracy for sufficiently low timestep
 lumping_factor = 0;                       % Specifies the amount of mass-lumping to use, in which the mass matrix is relaxed towards a diagonal matrix
                                           % 0 - no lumping, mass matrix comes from integration of a linear interpolant over control volume
                                           % 1 - full lumping, mass matrix is diagonal, by taking row sums of each row of the original mass matrix
@@ -99,10 +99,10 @@ end
 % Initialise problem
 [V, S] = initialiseProblem(cell_models, model_assignments, active);
 
-% The information that comes from the cell model (gating variable rate 
-% constants and steady states, as well as rates of change of non-gating
-% variables) are initialised as blank to indicate there is currently no
-% old information for these
+% The old value for the state variables is also set to the current value
+% for the first step. Also, the information that comes from the cell model
+% (gating variable rate constants and steady states) is initialised as
+% blank to show there is no old information for these
 b_old = [];
 Sinf = [];
 invtau = [];
@@ -136,7 +136,7 @@ while t < t_end
     
     % Calculate the total 'current density'
     J = (1/Cm) * ( I_ion(active) + I_stim(active) );
-    
+        
     %%% PROCESS UPDATE
     V_active = takeTimestep(V(active), J, J_old, A_new, A_old, A_J, solve_exact, preconditioning, second_order);
     V(active) = V_active;

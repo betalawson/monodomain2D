@@ -1,13 +1,10 @@
-function [I_ion, S, Sinf, invtau] = SecondOrderUpdateFK(V, S, S_old, Sinf_old, invtau_old, dt, I_stim, I_stim_old, params)
+function [I_ion, S, Sinf, invtau, b] = SecondOrderUpdateFK(V, S, Sinf_old, invtau_old, b_old, dt, I_stim, I_stim_old, params)
 % This function performs a Rush Larsen timestep of the specified length for
 % the Fenton-Karma (3V) model. Current parameters are Beeler-Reuter 
 % parameters (Fenton and Karma, 1998).
 %
 % The user may specify additional parameters through the 'params' input
 % (currently unused)
-
-% All variables are of gating type in the Fenton-Karma model
-gating = [true, true];
 
 % Define tissue capacitance (in micro-Farads per square centimetre)
 C_m = 1;
@@ -36,6 +33,16 @@ tau_si = 30;            % Slow inward current
 
 % Other parameters
 k = 10;                 % Slow inward current activation slope
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% All variables are of gating type in the Fenton-Karma model
+gating = logical( [1 1] );
+%                  v w
+
+% This also means that the rate of change info for non-gating variables is
+% blank
+b = [];
 
 
 %%% Read out variables from state variable matrix
@@ -86,17 +93,18 @@ end
 % row to another node.
 %%% ONLY USED (NONZERO) FOR GATING VARIABLES
 A = -3/2 * invtau + 1/2 * invtau_old;
+% Ensure no estimated time constants go negative - estimate below zero
+% is bad so ensure in this scenario it is calculated using only the current
+% estimate (destroys 2nd order to rescue dire situations)
+A(A > 0) = -invtau(A > 0);
 
 % Do the same for "B" which is the remainder (here just the constant terms)
 %  b(n+1/2) = 3/2 b(n) - 1/2 b(n-1),    with   b = diag( Sinf / tau )
 B(:,gating) = 3/2 * (Sinf .* invtau) - 1/2 * (Sinf_old .* invtau_old);
-B(:,~gating) = 3/2 * S(:,~gating) - 1/2 * S_old(:,~gating);
 
 %%% Update gating variables using a second order exponential integration:
 %%%  g_new = g_old + dt * ( exp( dt a ) - 1 ) / ( dt a ) * ( a g_old +  b )  - update for gating variables
 %%%  S_new = S_old + b                                                       - update for non-gating variables
 S(:,gating) = S(:,gating) + dt * ( exp( dt * A ) - 1 ) ./ ( dt * A ) .* ( A .* S(:,gating) + B(:,gating) );
-S(:,~gating) = S(:,~gating) + dt * B(:,~gating);
-
 
 end
